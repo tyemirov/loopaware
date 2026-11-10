@@ -1,927 +1,117 @@
 # LoopAware
 
 [![CI](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml/badge.svg)](https://github.com/tyemirov/loopaware/actions/workflows/ci.yml)
-[![License: Source Available](https://img.shields.io/badge/License-Source%20Available-blue)](./LICENSE)
-[![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](https://go.dev)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue)](LICENSE)
 [![Latest Release](https://img.shields.io/github/v/release/tyemirov/loopaware)](https://github.com/tyemirov/loopaware/releases)
+**Customer feedback, traffic reports, and site health in one dashboard.**
+LoopAware combines feedback, email subscriptions, traffic analytics, uptime checks, and application error reports.
+Teams can manage multiple sites, give teammates access, and collect feedback from websites and mobile apps.
 
-**Privacy-first feedback widget, traffic analytics, uptime checks, and developer monitoring.** Drop a single script tag on your site to collect customer feedback, capture email subscribers, track visits, and report browser errors -- all backed by a role-aware dashboard and a self-hosted SQLite backend.
+Use LoopAware to learn what visitors report, compare traffic across sites, and receive email reports and outage alerts.
+The browser dashboard and native operator app use the same Go API and SQLite database.
 
-- **Free** for personal and non-revenue projects
-- **Commercial license** required for revenue-generating use
-- See [LICENSE](./LICENSE) for details
+## What you can do
 
-<!-- TODO: Add screenshot of dashboard here -->
-<!-- ![LoopAware Dashboard](docs/screenshot-dashboard.png) -->
+| Capability | What it provides |
+| --- | --- |
+| Customer feedback | A website widget with contact details, messages, sentiment, and source context. A React Native client adds feedback to mobile apps. |
+| Email subscriptions | Embedded forms, confirmation and unsubscribe links, subscriber management, and CSV export. |
+| Traffic reports | Page views, unique visitors, trends, sources, devices, inferred locations, CSV export, and scheduled reports across selected sites. |
+| Daily counts | Daily request totals with no individual visit records. Select this analytics mode when you create a site. |
+| Reliability | Backend uptime checks with down/recovered alerts. LA Sentry groups application errors from browser, Go, and Python clients. |
 
-## Quick Start
+Authenticated users can create sites.
+Global administrators can manage all sites.
+Owners and creators manage their sites.
+Assigned team members can read site data.
 
-```bash
-# Clone and start the development stack
-git clone https://github.com/tyemirov/loopaware.git
-cd loopaware
-./scripts/up.sh
+Each collection feature has its own client or endpoint.
+Enable the features that your site needs.
 
-# Open the dashboard
-open http://localhost:8080/login
-```
+## Get your first feedback
 
-Embed the feedback widget on any page:
+Use an existing LoopAware service, or complete the [local setup](docs/setup.md) first.
+The public frontend address is [loopaware.mprlab.com](https://loopaware.mprlab.com/).
+
+1. Open `/login` on your frontend and sign in with Google.
+2. Open `/app` and create a site with its name, owner email, and allowed website origin.
+3. Copy the site's feedback snippet from the dashboard.
+4. Add the snippet to a page on an allowed origin.
+5. Open the feedback bubble and submit a valid email or phone number with a message or sentiment.
+6. Open the site's Feedback tab and confirm that the submission appears.
+
+For the public service, the snippet has this form:
 
 ```html
-<script src="https://loopaware.mprlab.com/widget.js?site_id=YOUR_SITE_ID" defer></script>
+<script defer src="https://loopaware.mprlab.com/widget.js?site_id=YOUR_SITE_ID"></script>
 ```
 
-## Highlights
+For your own deployment, use its script hostname and the API origin from your dashboard snippet.
+See [collection clients](docs/integrations.md) for subscriptions, analytics, mobile feedback, and error reports.
 
-- Shared `mpr-ui` sign-in with TAuth-issued sessions and TAuth verifier-backed API protection
-- Role-aware dashboard (`/app`) with admin, creator/owner, and per-site team-member scopes
-- YAML configuration for privileged accounts (`configs/config.loopaware.yml`)
-- REST API to create, update, and inspect sites, feedback, subscribers, and traffic
-- Background favicon refresh scheduler with live dashboard notifications
-- Embeddable JavaScript widget with strict origin validation
-- Email subscription capture via an embeddable subscribe form
-- Privacy-safe traffic pixel with per-site visit and visitor counts
-- Daily, weekly, or monthly traffic report emails delivered through Pingwin to a manager, the whole site team, or selected members
-- Backend site health monitoring with public-target validation, thresholded down/recovered transitions, and Pingwin email alerts
-- First-class LA Sentry developer error monitoring with protected server-to-server ingest and origin-bound browser capture
-- SQLite-first storage with pluggable drivers
-- Public privacy policy and compliance endpoints for visibility
-- Table-driven tests and fast in-memory SQLite fixtures
+## Choose your analytics mode
 
-## Configuration
+The traffic profile is fixed when you create a site.
 
-Tracked LoopAware product configuration lives under `configs/`. Its `.env.*.example` files document variable names with
-intentionally unusable values; they are not templates or runtime inputs. The directory also holds service config templates
-and the LoopAware backend runtime config consumed by local Docker Compose and mounted by the declared production service. Real local `configs/.env.*`
-files are intentionally ignored and must be created explicitly, never copied or sourced from the examples. Legacy repo-root
-`.env.*` files are unsupported duplicates and should be moved into `configs/` and deleted. Test-only Compose files and the
-canonical config-audit environment fixtures belong under `tests/`, not `configs/`.
+| | Detailed traffic | Daily counts only |
+| --- | --- | --- |
+| Stored analytics | Individual visits with visitor identifiers, IP addresses, user agents, page URLs, referrers, and browser context. | Site ID, UTC date, and accepted-request count. |
+| Reports | Page views, unique visitors, pages, attribution, engagement, devices, and inferred locations. | Daily request totals. Visitor and page metrics are unavailable. |
+| Client | `pixel.js`, or an image pixel with fewer signals. | `count.js`, or the native HTTP endpoint. |
+| Retention | The server configures no automatic deletion window for detailed visits. | Configurable from 1 to 90 UTC calendar days. The tracked configuration uses 90 days. |
 
-### 1. Backend runtime config (`configs/config.loopaware.yml`)
+The detailed browser client stores a persistent visitor identifier in `localStorage`.
+Unique visitors measure distinct recorded identifiers, rather than verified individuals.
+Location signals are estimates with source and confidence metadata.
+Daily counts measure accepted requests, including repeat requests.
 
-LoopAware reads one backend runtime YAML file through `github.com/tyemirov/utils/runtimeconfig`. The selected file is parsed strictly, shell placeholders are expanded during that parse, and the server consumes the populated typed config after validation. Runtime values are not read from environment variables or config flags after parsing.
+Feedback contact details and subscriber addresses have separate records from analytics.
+Review the [collection contract](docs/integrations.md#daily-counts) and [privacy policy](https://loopaware.mprlab.com/privacy/) for data details.
 
-```yaml
-server:
-  address: "${APP_ADDR}"
-  public_base_url: "${PUBLIC_BASE_URL}"
-  trusted_proxy_cidrs:
-    - "${TRUSTED_PROXY_CIDR}"
-  trusted_edge_geo_proxy_cidrs: []
+## Run it yourself
 
-database:
-  driver: "${DB_DRIVER}"
-  dsn: "${DB_DSN}"
+LoopAware uses a Go API, SQLite, a static frontend, and a native Expo/React Native operator app.
+SQLite is the currently supported database.
 
-auth:
-  session_secret: "${SESSION_SECRET}"
-  tauth:
-    base_url: "${TAUTH_BASE_URL}"
-    tenant_id: "${TAUTH_TENANT_ID}"
-    jwt_signing_key: "${TAUTH_JWT_SIGNING_KEY}"
-    session_cookie_name: "${TAUTH_SESSION_COOKIE_NAME}"
+The local Docker Compose stack includes these services:
 
-pinguin:
-  address: "${PINGUIN_ADDR}"
-  auth_token: "${PINGUIN_AUTH_TOKEN}"
-  tenant_id: "${PINGUIN_TENANT_ID}"
-  connection_timeout_seconds: 5
-  operation_timeout_seconds: 30
+- LoopAware for collection, management APIs, background tasks, and SQLite storage.
+- TAuth for Google sign-in and operator sessions.
+- Pingwin for email delivery.
+- gHTTP for local static files and reverse-proxy routes.
 
-notifications:
-  subscription_enabled: true
-  traffic_report_emails_enabled: true
+The browser frontend loads shared MPR UI components and other external dependencies from CDNs.
+Production separates the GitHub Pages frontend, LoopAware API, and TAuth hostnames.
+See [setup and configuration](docs/setup.md) for required inputs and the local startup procedure.
+See [deployment](docs/deployment.md) for the Gateway lifecycle, native builds, and publication inputs.
 
-admins:
-  - temirov@gmail.com
-```
+## Documentation and development
 
-LoopAware loads the file specified by `--config` (default `configs/config.loopaware.yml`) before starting the HTTP server. Administrator emails come from the YAML `admins` list. When the list is empty the server starts without administrators and records a warning in the logs.
+| Guide | Contents |
+| --- | --- |
+| [Setup](docs/setup.md) | Configuration, authentication, local Docker, and frontend hostnames. |
+| [Integrations](docs/integrations.md) | Widget, subscriptions, traffic, daily counts, mobile feedback, and LA Sentry. |
+| [Dashboards](docs/dashboard.md) | Site access, reports, traffic metrics, and web/mobile controls. |
+| [HTTP API](docs/api.md) | Routes, roles, collection limits, and metric definitions. |
+| [Development](docs/development.md) | Tests, browser checks, dependency audits, and local test isolation. |
+| [Deployment](docs/deployment.md) | Release, publication, activation, signing, and store preparation. |
+| [React Native feedback client](clients/react-native/README.md) | Installation and application integration. |
 
-### 2. Placeholder inputs
-
-The local Compose env files provide shell values for placeholders used by `configs/config.loopaware.yml`; they are not an alternate runtime config source.
-
-| Variable               | Required | Description                                                 |
-|------------------------|----------|-------------------------------------------------------------|
-| `APP_ADDR`             | ✅        | Listen address, for example `:8080`                         |
-| `PUBLIC_BASE_URL`      | ✅        | Frontend origin used for CORS and subscription links        |
-| `TRUSTED_PROXY_CIDR`   | ✅        | Canonical CIDR of the reverse proxy allowed to set client forwarding headers |
-| `DB_DRIVER`            | ✅        | Storage driver (`sqlite`, etc.)                             |
-| `DB_DSN`               | ✅        | Driver-specific DSN                                         |
-| `SESSION_SECRET`       | ✅        | 32+ byte secret for subscription confirmation tokens        |
-| `TAUTH_BASE_URL`       | ✅        | Base URL for the TAuth API                                  |
-| `TAUTH_TENANT_ID`      | ✅        | Tenant identifier configured in TAuth                       |
-| `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
-| `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth                            |
-| `PINGUIN_ADDR`         | ✅        | Pingwin gRPC address                                        |
-| `PINGUIN_AUTH_TOKEN`   | ✅        | Bearer token passed to the Pingwin gRPC service             |
-| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pingwin gRPC API     |
-
-Secrets can remain outside the tracked file by using placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
-
-`server.trusted_proxy_cidrs` must contain canonical CIDRs and cannot contain a catch-all network. Gin accepts
-`X-Forwarded-For` only when the immediate peer is inside that boundary; forwarding headers from every other peer are
-removed before logging, HTTPS detection, storage, or rate limiting. `server.trusted_edge_geo_proxy_cidrs` is a separate
-subset of the proxy boundary. Keep it empty unless the named owned proxy overwrites caller geo headers with canonical
-values. The tracked local, test, and ComputerCat stacks give gHTTP a fixed address and trust only that address. The
-production manifest trusts the gateway-owned internal network because Caddy is the only public path to the API service.
-
-When running via Docker Compose, create private local `.env.*` files explicitly. The tracked examples document variable names only; their values are intentionally unusable and must never be copied, sourced, or passed to Compose.
+After you install the development prerequisites, use the repository Make targets:
 
 ```bash
-touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
-$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
-```
-
-Pingwin and LoopAware must share the same bearer secret. Set Pingwin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
-`configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`, and `configs/.env.pinguin` must set
-`PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
-define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
-YAML file; they are not a second runtime config source. Production deployment values use the separate ignored
-`.mprlab/deploy/.env` input and the manifest's `private_values` bindings.
-Gateway resolves this selected file and caller values during manifest processing for each lifecycle phase.
-`config-audit` validates real local env files when they are present. When they are absent, each production Compose service
-declares a tracked audit-only fixture under `tests/configs/` with `x-config-audit-env-file`; `.env.*.example` files are never
-loaded. Runtime still requires the real local env files. Every existing repo-root or `configs/` dotenv input,
-`.mprlab/deploy/.env`, and mounted private-key file must be a regular file with mode `0600`; tracked examples and audit
-fixtures are not private runtime inputs, and absent private inputs remain valid for source-only checkouts.
-
-The local configuration audit uses `tests/configs/loopaware.local.env` only for `config-audit`.
-The runtime input remains `configs/.env.loopaware`.
-The computercat audit uses `tests/configs/loopaware.computercat.env` only for `config-audit`.
-Its `192.0.2.10/32` trusted proxy is a documentation address.
-The production runtime input remains `configs/.env.loopaware.computercat`.
-
-Frontend runtime host mapping lives in `web/config.yml`, which is served directly as `/config.yml` by the static site.
-It also carries per-environment frontend service settings such as `siteWidgetSiteId` for the first-party landing and
-dashboard widget.
-
-### 3. Config selection
-
-The server command keeps only the config-file selector:
-
-```
-loopaware --config=configs/config.loopaware.yml
-```
-
-## Running locally
-
-For Docker-based local development, use the helper script:
-
-```bash
-./scripts/up.sh
-```
-
-Stop the local stack with:
-
-```bash
-./scripts/down.sh
-```
-
-`scripts/up.sh` is the canonical startup path for Dockerized LoopAware. With no argument it opens an interactive selector.
-You can also call it explicitly as `./scripts/up.sh local` or `./scripts/up.sh computercat`.
-The local compose stack now includes a gHTTP proxy that serves `web/` at `http://localhost:8080` and forwards `/api`,
-`/auth`, and `/public` to the backend services. That proxy is also responsible for the browser-facing
-security headers on the static HTML and proxied API responses in the local stack.
-
-If you want to run only the API process without Docker, use:
-
-```bash
-APP_ADDR=:8080 \
-DB_DRIVER=sqlite \
-DB_DSN="file:loopaware.sqlite?_foreign_keys=on" \
-SESSION_SECRET=$(openssl rand -hex 32) \
-TAUTH_BASE_URL=http://localhost:8081 \
-TAUTH_TENANT_ID=loopaware \
-TAUTH_JWT_SIGNING_KEY=replace-with-tauth-jwt-signing-key \
-TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
-PUBLIC_BASE_URL=http://localhost:8080 \
-TRUSTED_PROXY_CIDR=192.0.2.1/32 \
-PINGUIN_ADDR=localhost:50051 \
-PINGUIN_AUTH_TOKEN=replace-with-pinguin-token \
-PINGUIN_TENANT_ID=loopaware \
-go run ./cmd/server --config=configs/config.loopaware.yml
-```
-
-When serving the static frontend directly from `web/`, no preparation step is required. Keep the tracked runtime
-config in `web/config.yml` and serve `web/` from the frontend origin or reverse proxy that will answer `/config.yml`,
-`/api`, and `/auth`.
-
-Then open `/app` on that frontend origin to trigger the shared sign-in flow.
-Ensure the TAuth service is running at the configured `auth.tauth.base_url` with a tenant that matches `auth.tauth.tenant_id`.
-Administrators listed in `configs/config.loopaware.yml` can manage every site; other users see sites they own, sites
-they originally created with their authenticated account, or sites where an admin added their email as a team member.
-
-The static frontend uses literal `@latest` CDN URLs for the three MPR UI assets.
-MPR UI owns browser authentication and protected management requests.
-The provider config uses `auth.providers` in each environment.
-The application waits for the shared bundle and authentication before it requests account data.
-The shared transport recovers the session after an unauthorized response.
-The API authorizes each protected request before domain work, which permits one mutation replay.
-
-The inactivity logout flow reads the current header `auth-config` for its TAuth request.
-Other external JavaScript and CSS declarations retain pinned versions and SHA-384 subresource integrity.
-The MPR UI declarations omit fixed integrity values because their URLs select the current shared release.
-See [shared UI migration](docs/mpr-ui-migration.md) for candidate evidence and the central I009 dependency.
-
-Every HTML entry point
-declares the canonical `configs/content-security-policy.txt` static-hosting CSP before executable or styled content. The local proxies enforce the same policy
-as a response header and add `frame-ancestors 'none'`, which CSP metadata cannot enforce. Run
-`make browser-security-audit` to detect dependency, integrity, CSP, or proxy-policy drift. Do not copy third-party
-browser bundles into `web/`; non-CDN frontend dependencies are forbidden by architecture.
-
-## Authentication flow
-
-1. Users visit `/login` (automatic redirect from protected routes).
-2. `mpr-ui` drives the browser sign-in lifecycle against the configured TAuth tenant.
-3. TAuth issues and refreshes the session cookie configured by `auth.tauth.session_cookie_name`.
-4. `api.AuthManager` validates the session with TAuth's verifier, injects user details into the request context, and enforces admin,
-   owner, or team-member site access.
-5. The dashboard and JSON APIs consume the authenticated context.
-
-## Static frontend
-
-LoopAware’s frontend lives in `web/` and is hosted separately (CDN or reverse proxy). It includes:
-
-- `/login` — landing page with shared `mpr-ui`/TAuth sign-in.
-- `/resources` — crawlable public resource index with focused product and use-case pages.
-- `/privacy` — static privacy policy linked from the landing and dashboard footers.
-- `/app` — dashboard shell (data loaded via `/api/*`).
-- `/subscriptions/confirm` and `/subscriptions/unsubscribe` — email link pages.
-- `/widget.js`, `/subscribe.js`, `/pixel.js`, `/la-sentry.js` — embeddable JavaScript assets.
-- `/sentry/errors` — protected server-to-server developer error ingest.
-- `/sentry/browser-errors` — origin-bound browser developer error ingest.
-
-The repository does not vendor third-party browser dependencies into `web/`. External JavaScript and CSS, including UI
-libraries, must be referenced through pinned CDN URLs. Any browser dependency that is not delivered by CDN is
-forbidden. `web/` is reserved for LoopAware-authored assets only, so deployments, cache behavior, and browser tests
-exercise the same delivery path used in production.
-
-Set `PUBLIC_BASE_URL` to the frontend origin so the API emits correct links and CORS allows browser access. Use
-absolute `data-api-origin` attributes (or `api_origin` query params) on embed scripts when the API runs on a different
-origin. The dashboard and login pages call `/api` and `/auth` relative to the frontend origin, so split-origin
-deployments should use a reverse proxy or update the static HTML in `web/` to point at those services.
-The tracked runtime host mapping lives in `web/config.yml`, which `web/runtime-env.js` fetches directly at runtime.
-Canonical SEO metadata, Open Graph URLs, `robots.txt`, and `sitemap.xml` are fixed to the single public site
-`https://loopaware.mprlab.com` and are not environment-specific. The public resource hub lives at
-`https://loopaware.mprlab.com/resources/` and links focused guides for feedback, subscriber workflows, traffic analytics,
-uptime checks, access control, self-hosted deployments, and LA Sentry monitoring.
-Each environment may also define `services.siteWidgetSiteId` there to bootstrap the first-party feedback widget on
-`/login` and `/app` without hard-coding a site UUID into the static HTML.
-
-## REST API
-
-All authenticated endpoints live under `/api` and require the configured TAuth session cookie. Public collection endpoints for
-feedback, subscriptions, and visits do not require a session but still enforce per-site origin rules. JSON responses
-include Unix timestamps in seconds.
-
-Detailed sites use `interval=1day` for the trailing 24 hours.
-Aggregate sites use `interval=1day` for the current UTC day. `interval=7days` and `interval=30days` use UTC day windows.
-Each window includes the current UTC day and its preceding days.
-`interval=all` reports all recorded human visits for detailed sites.
-For aggregate sites, it reports all retained accepted-request counts.
-
-| Method  | Path                                  | Role        | Description                                                                                             |
-|---------|---------------------------------------|-------------|---------------------------------------------------------------------------------------------------------|
-| `GET`   | `/api/me`                             | any         | Current account metadata (email, name, `role`, `avatar.url`)                                            |
-| `GET`   | `/api/sites`                          | any         | Sites visible to the caller; each row includes `access_role` (`admin` or `team_member`)                  |
-| `POST`  | `/api/sites`                          | any         | Create a site (requires `name`, `allowed_origin`, `owner_email`)                                        |
-| `PATCH` | `/api/sites/:id`                      | owner/admin | Update name/origin; admins may reassign ownership                                                       |
-| `DELETE`| `/api/sites/:id`                      | owner/admin | Delete a site                                                                                            |
-| `GET`   | `/api/sites/:id/team`                 | owner/admin | List per-site team member email assignments                                                             |
-| `POST`  | `/api/sites/:id/team`                 | owner/admin | Add a per-site team member by email                                                                     |
-| `DELETE`| `/api/sites/:id/team/:member_id`      | owner/admin | Remove a per-site team member assignment                                                                |
-| `GET`   | `/api/sites/:id/mobile-apps`          | owner/admin/team member | List native mobile apps registered for feedback submissions                                    |
-| `POST`  | `/api/sites/:id/mobile-apps`          | owner/admin | Register a native mobile app for mobile feedback submissions                                            |
-| `GET`   | `/api/sites/:id/messages`             | owner/admin/team member | List feedback messages (newest first)                                                         |
-| `GET`   | `/api/sites/:id/subscribers`          | owner/admin/team member | List subscribers for a site                                                                   |
-| `GET`   | `/api/sites/:id/subscribers/export`   | owner/admin/team member | Download subscribers as CSV                                                                   |
-| `PATCH` | `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Update a subscriber’s status (confirm or unsubscribe)                                             |
-| `DELETE`| `/api/sites/:id/subscribers/:subscriber_id` | owner/admin | Delete a subscriber                                                                                |
-| `GET`   | `/api/sites/:id/visits/stats`         | owner/admin/team member | Aggregate visit and unique visitor counts plus recent visits and top pages (optional `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/visits/export`        | owner/admin/team member | Download traffic visits as CSV (optional `interval=all\|1day\|7days\|30days`)                      |
-| `GET`   | `/api/sites/:id/sentry/issues`        | owner/admin/team member | List grouped developer error issues for a site                                                |
-| `GET`   | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin/team member | Inspect latest and recent LA Sentry error occurrences                                      |
-| `PATCH` | `/api/sites/:id/sentry/issues/:issue_id` | owner/admin | Update issue status (`unresolved`, `resolved`, or `ignored`)                                         |
-| `POST`  | `/api/sites/:id/sentry/token`         | owner/admin | Rotate and reveal a per-site LA Sentry ingest token                                                     |
-| `GET`   | `/api/sites/:id/visits/trend`         | owner/admin/team member | Daily visit trend (default 7 days, optional `days` query param up to 30, or `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/visits/attribution`   | owner/admin/team member | Source/medium/campaign attribution breakdown (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/visits/engagement`    | owner/admin/team member | Visitor engagement metrics (default 30 days, optional `days` query param up to 90, or `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/visits/devices`       | owner/admin/team member | Device, screen resolution, and viewport breakdowns (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/visits/locations`     | owner/admin/team member | Inferred visitor locations from edge geo, timezone, locale, network, or unknown signals with confidence metadata (optional `limit` query param up to 50, optional `interval=all\|1day\|7days\|30days`) |
-| `GET`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Read the selected-site traffic report schedule, including `recipient_mode` (`manager`, `team`, or `selected`) and selected team member emails |
-| `PUT`   | `/api/sites/:id/traffic-report-schedule` | owner/admin | Save the selected-site traffic report schedule; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
-| `POST`  | `/api/sites/:id/traffic-report-schedule/test` | owner/admin | Send the selected-site traffic report immediately to the schedule's resolved recipients |
-| `GET`   | `/api/sites/:id/health-monitor`       | owner/admin/team member | Read the selected-site uptime monitor configuration and current status                                      |
-| `PUT`   | `/api/sites/:id/health-monitor`       | owner/admin | Save the selected-site uptime monitor; `recipient_mode: "selected"` accepts only current per-site team member emails in `recipient_emails` |
-| `POST`  | `/api/sites/:id/health-monitor/check` | owner/admin | Run one immediate backend health check for the selected site monitor                                         |
-| `GET`   | `/api/sites/favicons/events`          | any         | Server-sent events stream announcing refreshed site favicons                                            |
-| `GET`   | `/api/sites/feedback/events`          | any         | Server-sent events stream announcing new feedback                                                      |
-| `POST`  | `/public/feedback`                       | public      | Submit feedback (requires `site_id`, valid `contact` as email or phone, at least one of `message` or `sentiment`, and optional `source_url` for the submitting page) |
-| `POST`  | `/public/mobile-feedback`                | public      | Submit feedback from a registered mobile app with screen/app context                                   |
-| `POST`  | `/public/subscriptions`                  | public      | Submit an email subscription (JSON body with `site_id`, `email`, optional `name` and `source_url`)      |
-| `GET`   | `/public/visits`                         | public      | Record a page visit for a site (returns a 1×1 GIF for use as a tracking pixel)                          |
-| `POST`  | `/sentry/errors`                         | ingest token | Submit developer error events with `Authorization: Bearer <token>` or `X-LoopAware-Sentry-Token`       |
-| `POST`  | `/sentry/browser-errors`                 | site origin | Submit browser JavaScript error events from configured site origins                                     |
-
-Subscriptions use signed confirmation and unsubscribe links sent via email. The static frontend pages at
-`/subscriptions/confirm?token=...` and `/subscriptions/unsubscribe?token=...` call the matching signed-token API
-endpoints without requiring browser origin headers. Public callers cannot inspect or mutate subscription state by email.
-
-The HTTP edge accepts at most 64 KiB for standard JSON mutations and 1 MiB for protected LA Sentry event ingestion;
-pixel-style visit requests accept no body. Oversized requests return `413` with `{"error":"request_too_large"}` before
-route dispatch. The server bounds header reads to 5 seconds, complete request reads to 10 seconds, idle connections to 60
-seconds, and headers to 64 KiB. It intentionally has no response write deadline so authenticated server-sent event
-streams remain open. Public visit collection separately allows 120 requests per 30 seconds for each site and verified
-client address, then returns `429`; forwarding-header spoofing cannot create a new window.
-
-LA Sentry ingest accepts JSON with `site_id`, `event_id`, `timestamp`, `platform`, `environment`, `release`, `level`,
-`message`, `exception_type`, `stacktrace`, `request`, `user_hash`, `tags`, and `extra`. Rotate the per-site token from
-the dashboard `LA Sentry` tab; tokens are shown only once and are intended for server-side clients. The browser harness uses
-`/sentry/browser-errors` without a token. Browser events are accepted only from the site's configured `allowed_origin`
-values, are rate-limited by client IP, and store minimized request metadata.
-
-The `allowed_origin` field for a site may contain multiple origins separated by spaces or commas (for example `https://mprlab.com http://localhost:8080`); widgets, subscribe forms, and pixels will accept requests from any configured origin while still rejecting traffic from unknown sites.
-
-Detailed traffic breakdowns support `sort=page_views` and `sort=unique_visitors`.
-This applies to `/visits/stats`, `/visits/attribution`, `/visits/devices`, and `/visits/locations` for one site.
-The default is `page_views`. Invalid sort values return `400 invalid_sort`.
-Each detailed bucket includes `visit_count` for page views and `unique_visitor_count` for distinct visitors.
-The API applies the selected order before the result limit.
-Unique counts exclude empty visitor identifiers and use the final normalized bucket.
-Page views include visits without a visitor identifier.
-Equal unique counts use the canonical bucket key in ascending order.
-The site, interval, and bot filters apply to both metrics.
-A visitor can appear in multiple buckets or dates. These unique counts are not additive.
-Aggregate sites retain their unavailable visitor metrics.
-
-The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached
-profile image (served from `/api/me/avatar`). The dashboard uses this payload to render the account card and determine
-site scope.
-
-Authenticated users can create sites. Owners, creators, and global admins can update and delete sites, can add
-per-site team member emails, and can choose whether selected-site traffic reports and health alerts go only to the
-manager, the whole site team, or selected team members. Team members can read assigned site data after signing in with
-the matching Google email, but cannot manage site settings, memberships, schedules, or health monitors.
-
-Site health checks are backend synthetic GET probes against the configured public HTTP(S) target. They do not require a
-customer-site heartbeat script or any extra JavaScript beyond the existing widget/pixel/Sentry embeds. Direct private,
-loopback, link-local, and special-use addresses are rejected when a monitor is saved, redirects are revalidated during
-probing, and alerts are emitted only on status transitions after the configured consecutive-failure threshold.
-
-Deployments upgraded from versions prior to LA-57 should allow the server startup migration to run once; it backfills any
-sites missing a `creator_email` with `temirov@gmail.com` to preserve creator-based visibility rules. New site creations
-store the authenticated creator separately from the configured owner mailbox.
-
-## Dashboard (`/app`)
-
-The Bootstrap front end consumes the APIs above. Features include:
-
-- Account Settings modal with avatar, email, role badge, reports, and inactivity controls
-- Site creation and owner reassignment available to every authenticated user; administrators additionally see all sites
-- Owner/admin editor for site metadata, with per-site team member emails managed from the Admin dashboard section
-- Selected-site traffic report scheduling with recipient selection for only the manager, the whole site team, or checked team members
-- Selected-site health monitoring with enablement, target URL, interval, timeout, failure threshold, manual check, and alert-recipient controls
-- Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
-- Feedback table with human-readable timestamps
-- Subscribers panel with per-site subscriber counts, table, spreadsheet-formula-safe CSV export, and a copyable `subscribe.js` snippet
-- Section selector tabs to switch between Feedback, Subscriptions, Traffic, Health, LA Sentry, and manager-only Admin tools
-- Subscriber deletion via a confirmation modal
-- Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
-- Real-time favicon refresh notifications delivered through the SSE stream
-- Sign-out button provided by the shared `mpr-ui`/TAuth shell
-- Inactivity prompt appears after the configured delay (defaults to 60 seconds) and logs out automatically after the configured timeout (defaults to 120 seconds) if unanswered
-
-The dashboard automatically redirects unauthenticated visitors to `/login`.
-
-## Embedding the widget
-
-1. Create a site (admin) and copy the generated `<script>` tag from the API response.
-2. Embed the script on any page served from one of the site’s configured `allowed_origin` values (you can supply multiple origins separated by spaces or commas). Include the `defer` attribute so the widget loads without blocking the page; the script waits for the body before rendering the UI.
-3. Visitors can open the floating bubble, submit feedback with a valid email or phone plus a message and/or sentiment, and the messages appear under `/api/sites/:id/messages` and
-   in the dashboard.
-
-Example snippet (replace the base URL with your LoopAware deployment and the site identifier with the value returned by the API):
-
-```html
-<script defer src="https://loopaware.mprlab.com/widget.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
-```
-
-## Adding mobile feedback
-
-React Native and Expo apps can use the first-party client under `clients/react-native` to render a native feedback
-button on selected screens. Mobile feedback is separate from LA Sentry error capture.
-
-Install the package from npm:
-
-```bash
-npm install @loopaware/react-native
-```
-
-1. Register the native app for the site:
-
-   ```json
-   POST /api/sites/6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f/mobile-apps
-   {
-     "platform": "ios",
-     "app_identifier": "com.example.app",
-     "display_name": "Example iOS"
-   }
-   ```
-
-2. Store the returned public `client_id` in the app configuration.
-3. Render the feedback button on screens where users should be able to comment:
-
-   ```tsx
-   <LoopAwareProvider
-     siteId="6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"
-     mobileClientId="client-id-from-dashboard-api"
-     apiOrigin="https://loopaware.mprlab.com"
-     app={{
-       platform: "ios",
-       applicationId: "com.example.app",
-       version: "1.2.3",
-       build: "44",
-       environment: "production",
-     }}
-   >
-     <CheckoutScreen />
-     <LoopAwareFeedbackButton
-       screen={{ name: "Checkout", path: "/checkout/payment" }}
-       context={{ step: "payment", plan: "pro" }}
-     />
-   </LoopAwareProvider>
-   ```
-
-The public `client_id` identifies the app registration; it is not a secret. Mobile submissions validate that the client
-ID, platform, and application identifier match the registered site app, then store the supplied screen, app version, and
-bounded context with the feedback message.
-
-Swift, Kotlin, and other non-React Native apps should implement the same REST contract directly against
-`/public/mobile-feedback` after registering the app with `/api/sites/:id/mobile-apps`; the repository does not ship
-separate native iOS or Android SDKs.
-
-## Embedding the subscribe form
-
-Each site exposes a subscribe snippet that renders an email capture form and posts subscriptions to `/public/subscriptions`.
-
-1. In the dashboard, select a site and use the Subscribers panel to copy the subscribe snippet.
-2. Embed the script on pages served from any of the site’s `allowed_origin` entries. The basic form looks like:
-
-   ```html
-   <script defer src="https://loopaware.mprlab.com/subscribe.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
-   ```
-
-3. Optional query parameters let you adjust behavior and styling:
-   - `mode=inline` (default) or `mode=bubble` for a floating button.
-   - `accent=#0d6efd` to override the accent color.
-   - `cta=Subscribe` to customize the button text.
-   - `success=You%27re+on+the+list%21` and `error=Please+try+again.` for inline messages.
-   - `name_field=false` to hide the optional name field.
-
-The form enforces the site’s `allowed_origin` list using request headers and `source_url` and responds with inline success or
-error messages so visitors never leave the page.
-
-## Embedding the traffic pixel
-
-The traffic pixel records page visits per site and powers the dashboard Traffic card and top-pages table.
-
-1. In the dashboard, select a site and use the Traffic panel to copy the pixel snippet.
-2. Embed the script on every page served from any of the site’s `allowed_origin` entries:
-
-   ```html
-   <script defer src="https://loopaware.mprlab.com/pixel.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f"></script>
-   ```
-
-3. On load, `pixel.js` sends a beacon to `/public/visits` with the site ID, current URL, referrer, browser timezone,
-   browser locale, viewport, screen resolution, and a stable visitor ID stored in `localStorage`. The server also stores
-   supported edge geo headers from Cloudflare, Vercel, and CloudFront only when an explicitly trusted owned proxy
-   overwrites them, then prefers that location signal over browser timezone and locale hints. The tracked deployments
-   reject caller-supplied edge geo metadata and use browser timezone or locale instead. Requests from origins outside the site’s `allowed_origin`
-   list are rejected. Traffic from known bot user-agent signatures is stored but excluded from default dashboard totals,
-   top-page rankings, trends, attribution, engagement, devices, and locations.
-
-The collector stores the `referrer` query value as the page referrer. An empty value means no reported referral.
-The HTTP `Referer` header identifies the page that sends the pixel request. It does not identify the visitor source.
-Campaign parameters in the page URL supply source, medium, and campaign attribution.
-
-For non-JavaScript environments you can fall back to a plain image pixel:
-
-```html
-<img src="https://loopaware.mprlab.com/public/visits?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&url=https%3A%2F%2Fexample.com%2F" alt="" width="1" height="1" />
-```
-
-## Daily counts
-
-Choose **Daily counts only** when you create a site.
-The traffic profile is fixed after creation.
-Existing sites keep individual visits.
-Use a separate aggregate site for native analytics.
-
-The public browser client is `count.js?site_id=SITE_ID`.
-It sends one request when the script starts.
-The native client uses this HTTP contract:
-
-```http
-POST /public/sites/SITE_ID/visit-counts
-Content-Type: application/json
-Origin: CONFIGURED_ORIGIN
-
-{}
-```
-
-Send the request to the LoopAware API hostname.
-Omit cookies and referrers. Keep the body empty except for the JSON object delimiters.
-Do not retry an uncertain response.
-A `204` response confirms the increment.
-An incorrect traffic profile returns `409`.
-Invalid fields or query data return `400`. A disallowed origin returns `403`.
-
-The database stores only the site ID, UTC date, and accepted request count.
-Reports cannot determine unique visitors, individual visits, pages, devices, or locations for aggregate sites.
-These metrics are unavailable in the API and dashboards.
-A mixed portfolio reports totals by UTC calendar day and marks visitor metrics unavailable.
-
-`analytics.aggregate_retention_days` specifies the retention window, from 1 to 90 calendar days.
-The canonical configuration uses 90 days, including the current UTC date.
-Cleanup runs before the server accepts requests and each day afterward.
-A restored database passes the same startup check.
-Site deletion also removes the daily totals.
-
-Collector request logs and crash logs exclude identifying request fields.
-Verify proxy logs separately before production activation.
-See [the application contract](.mprlab/CHILD-AUDIENCE-ANALYTICS.md) for the required deployment evidence.
-
-## Capturing developer errors
-
-Server-side clients should use the protected `/sentry/errors` endpoint with a per-site ingest token. The repository
-collects first-party client entrypoints under `clients/`:
-
-- Go: `clients/go/lasentry`
-- Python: `clients/python/la_sentry`
-- Browser: `clients/browser` documents the harness served from `web/la-sentry.js`
-
-Browser pages can use the standalone harness without exposing the server-side token:
-
-```html
-<script defer src="https://loopaware.mprlab.com/la-sentry.js?site_id=6f50b5f4-8a8f-4e4a-9d69-1b2a3c4d5e6f&environment=production&release=2026.04.24"></script>
-```
-
-The browser harness installs `window.LASentry.captureError(error, attrs)` and automatically captures uncaught
-`error` and `unhandledrejection` events. It sends sanitized URL/referrer/user-agent metadata, stack frames, tags, and
-explicit `extra` values supplied by application code.
-
-## Development workflow
-
-```bash
-make format
-make lint
 make test
+make lint
+make ci
 ```
 
-`make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
-`tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
-Use `make test-resource-theme` to verify theme storage on a resource page through the browser.
-This target installs the locked test dependencies when `tests/node_modules` is absent.
-Use `make test-resource-page-integration` to verify resource page contracts through the integration stack.
-
-The integration network uses `10.203.242.0/24` by default.
-Set `LOOPAWARE_TEST_NETWORK_PREFIX=10.212.34` to select another private test subnet before a test command.
-The runner validates this single prefix and uses it for the subnet, proxy address, and trusted proxy.
-An invalid prefix stops the runner before Docker operations.
-The runner does not select another subnet after a collision.
-
-Use `make test-unit` for Go-only tests and `make test-integration-api` to focus on API specs. Playwright artifacts
-(traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
-project down on exit, including failures and signal exits.
-The runner rejects inherited `LOOPAWARE_BASE_URL`, `LOOPAWARE_API_BASE_URL`, `LOOPAWARE_ENV_FILE`,
-`COMPOSE_PROJECT_NAME`, `DOCKER_HOST`, `DOCKER_CONTEXT`, and Docker TLS inputs; requires a local `unix://` or `npipe://`
-Docker endpoint; and supplies its own localhost frontend, random loopback-only backend port, test env file, and unique
-Compose project. The test helper independently rejects any non-loopback frontend or backend target.
-
-Use `make test-live-favicons` when validating customer-site favicon collection against known public websites. That
-target performs live network requests and is intentionally outside `make ci` so third-party uptime does not gate normal
-development.
-
-Run `make security-audit` to execute the pinned Go vulnerability analyzer, full dependency audits for every npm
-project, and the immutable supported-container-base contract. This audit is part of `make ci`; it requires network access
-to the Go vulnerability database and npm advisory service. To validate the complete shipped image after a base or Go
-dependency update, build it with `docker build --pull -t loopaware:security-audit .` and inspect it with
-`docker scout cves --only-severity critical,high --exit-code local://loopaware:security-audit`.
-Repository administrators can run the read-only `make github-security-audit` gate to verify the live Actions, branch
-protection, Dependabot, secret-scanning, and gateway-owned Pages controls against the tracked security contract.
-
-
-## Mobile site cards
-
-Each site card shows its collected favicon to the left of the name.
-The icon is 16 pixels wide and stays inside the current card dimensions.
-The role stays on its current line.
-The mobile client loads the stored image through the authenticated API.
-It loads up to four site images at a time and cancels obsolete requests.
-Images load again when the app returns to the foreground.
-When an image is absent or cannot be shown, the card shows the site name.
-
-## Mobile site filter
-
-Select the search icon on the right of `SITES` to open the site filter.
-Enter part of a site name or configured origin between `SITES` and the search icon.
-The field uses the same row. The site cards keep their vertical position when the field opens.
-Matches update automatically without regard to letter case, including secondary domains.
-
-An empty field shows all authorized site cards. A query without matches shows an explicit empty state.
-The filter preserves the selected site and its dashboard when its card is hidden.
-
-Use the clear control to restore all cards and keep the field active.
-Select a matching site card to open its dashboard and dismiss the keyboard.
-Select the search icon again to close the filter and clear the query.
-The query clears when the dashboard view ends, including settings navigation and sign-out.
-
-## Web reports
-
-Select the statistics icon immediately left of the account avatar to open the reports view.
-In Reports, this control shows a dashboard icon with the label `Dashboard`.
-Select the dashboard icon to open the selected site and tab.
-The automatic schedule write completes before the dashboard opens.
-The report library retains custom reports and email schedules.
-The header icon provides navigation between the dashboard and reports.
-
-## Mobile statistics
-
-Select the statistics icon immediately left of the account avatar to open `Statistics`.
-The report shows traffic for all sites that the account can view, including team sites.
-Global administrators see all sites.
-Statistics remains available when the selected site has no dashboard data.
-
-Select a site row to open that site's overview. The traffic interval remains selected.
-Select the dashboard icon left of the avatar to open the previous site and tab.
-Statistics loads current data on entry and when the app returns from the background.
-While open, it updates every 30 seconds and recovers automatically after request failures.
-The per-site `Reports` tab contains only the selected-site email schedule.
-
-The mobile report requests `GET /api/reports/traffic/portfolio?days=30&scope=visible`.
-The `visible` scope uses the same access rules as `GET /api/sites`.
-The default `owned` scope, custom reports, and email schedules retain their owner and creator rules.
-The API rejects unknown scopes and the combination of `scope=visible` with a custom report ID.
-
-## Traffic intervals
-
-Web and mobile offer all traffic, 30 days, seven days, and one day.
-Select `All`, `30d`, `7d`, or `1d` on the mobile Traffic tab.
-Select `All`, `30 days`, `7 days`, or `1 day` on web.
-The web interval also applies to traffic CSV exports.
-The selected interval applies to all traffic panels and remains selected after a site change.
-`7d` includes the current UTC day and the preceding six UTC days.
-Aggregate sites show daily request counts. Their unique visitor, engagement, device, and location metrics remain unavailable.
-
-## Location maps
-
-Web and mobile use the same Natural Earth world geography and equirectangular projection.
-The map shows location bubbles and labels. Mobile also shows location counts as native text.
-Mobile bubble size shows unique visitors. Web bubble size shows page views.
-The selected traffic interval applies to the map and location counts.
-
-On mobile, select a bubble or location control to show its source and confidence.
-The map fits the available width up to 720 points. Location selection remains after rotation.
-Unknown locations appear below the map.
-
-Light and dark themes apply automatically. Aggregate sites keep location metrics unavailable.
-The map uses local assets and does not request external map tiles.
-
-## Mobile traffic metrics
-
-The overview traffic card and detailed Traffic panels use unique visitors as their primary count.
-Top pages, sources, and devices use that count for values, bar lengths, and rank.
-Locations use that count for bubble size and rank.
-
-The Trend card follows Locations and shows a chronological line graph for all returned dates.
-Its X axis shows `Date (UTC)`. Its Y axis shows `Unique visitors`.
-Aggregate sites show the same graph under Daily counts, with `Requests` on the Y axis.
-The graph includes zero counts and single-day data. Accessibility services can read the exact daily counts.
-
-Page views appear as explicitly labeled supporting information and include repeat views.
-`Returning` measures visitors with more than one page view in the selected interval.
-`Pages/visitor` remains the average page count per tracked visitor.
-The mobile client requests `sort=unique_visitors` for detailed breakdowns.
-Web and email reports retain their current page-view ranking.
-
-## Location map signals
-
-Browser language regions and country-only signals appear as counts below the map.
-These signals do not produce map points.
-Unknown and local network signals also appear below the map.
-
-Timezone points are estimates. Edge coordinates require a confidence value of at least 88.
-Country-only edge signals have confidence values from 80 through 84.
-Each row keeps its unique visitor and page view counts.
-
-## Mobile account settings
-
-Open the avatar menu. Select `Settings` to see the account email, account role, and site access roles.
-The avatar uses the account image, or an email initial when no image is present.
-Select the close icon to open the selected site, tab, and traffic interval.
-The `Sign out` action is on the settings screen.
-
-Choose `Light`, `Dark`, or `System` under `Appearance`.
-Changes apply immediately and save automatically on this app installation.
-`System` follows device appearance changes, including after the app returns from the background.
-The preference remains after sign-out and is restored when the app opens again.
-Storage errors remain visible. Select a theme again to retry a failed write.
-
-The account photo loads through the authenticated mobile client.
-The email initial remains visible while the photo loads or cannot be shown.
-Account changes cancel the previous photo request.
-The photo loads again when the app returns to the foreground.
-
-## Mobile overview navigation
-
-Select an overview card to open its detail tab:
-
-- `Feedback` opens `Feedback`.
-- `Subscribers` opens `Subscribers`.
-- `Unique visitors` for detailed sites and `Requests` for aggregate sites open `Traffic`.
-- `Health` opens `Health`.
-- `Sentry` opens `LA Sentry`.
-
-The complete card is a button, including when its count is zero.
-The selected site and traffic interval remain selected.
-The destination tab becomes visible. Accessibility focus moves to its content heading.
-
-## Release, Publish, Deploy
-
-LoopAware declares its complete production shape in `.mprlab/deploy/resources.yml`. That permanent versionless manifest is the only tracked production lifecycle declaration. It declares backend services, retained data, runtime endpoints, public routing, and GitHub Pages delivery.
-It also declares the React Native package, native mobile artifacts, and private input references.
-
-Run the complete lifecycle from this repository:
-
-```bash
-make deploy
-```
-
-Gateway v9 prepares the release, publishes its artifacts, deploys the runtime, and verifies the declared surfaces.
-The optional `make release` and `make publish` targets execute their named phases.
-Each target calls the installed `mprlab-gateway` command with `release`, `publish`, or `deploy`.
-The wrapper passes the exact application Git root through `--app-root`.
-
-Set `MPRLAB_GATEWAY_EXECUTABLE` to select an explicit installed executable.
-The wrapper passes caller environment values unchanged.
-Gateway reads only the environment file selected by the manifest.
-Caller values take precedence.
-
-Each Gateway call uses `CI=1` and closed standard input.
-Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
-LoopAware retains its native builders and application inputs.
-
-The full pipeline has a completion limit of five hours and 30 minutes.
-CI and release each retain a 30-minute budget. Publication retains four hours.
-The total includes a 20-minute activation allowance and ten minutes for orchestration.
-Gateway uses the same `app-deploy` budget for the complete pipeline and runtime activation.
-
-The selected manifest binds the npm publication credential as `NPM_API_KEY`.
-Gateway supplies this captured value to npm through standard input.
-See [npm publication credentials](docs/npm-publication.md) for the input contract and authentication diagnosis.
-
-The selected manifest declares `.mprlab/deploy/.env` through `environment.source`.
-Gateway resolves that file and process values during manifest processing for release, publication, and deployment.
-Each operation uses its captured inputs.
-The `environment.private_inputs` catalog binds private input references.
-Keep secret values outside the manifest and public artifacts.
-
-Run `make mobile-prepare-store` after a native configuration or dependency change.
-This command generates the production native projects under `mobile/prepared/`.
-Commit the prepared files with their source changes.
-Release verifies application identity, native configuration, and dependency versions before the native build.
-The adapter stages the current captured product source with the prepared native inputs.
-
-iOS releases use the shared Gateway native builder on a Mac.
-The selected manifest uses `mobile/scripts/build-store-artifact.mjs` for Android and iOS.
-Gateway exports the signed IPA only for App Store Connect and preserves the internal TestFlight restriction.
-No physical iOS device or registered test device is required.
-Use Xcode 26.6, CocoaPods 1.17, and Node.js 24 or later on the build Mac.
-The iOS app version comes from `ios.version` in `mobile/app.config.js`.
-The generated plist reads `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` from the native build settings.
-The release timestamp allocates its integer build number as UTC seconds since January 1, 2020.
-The Android adapter retains its native AAB builder and UTC CalVer contract.
-Application versions can differ from the repository release version.
-Expo CLI runs during preparation and local development only.
-
-The iOS app declares `ios.config.usesNonExemptEncryption: false` for its current use of Apple system services.
-Expo writes this declaration as Boolean false under `ITSAppUsesNonExemptEncryption` in the native Info.plist.
-Apple reads the uploaded declaration for TestFlight export compliance.
-Native preparation verifies both source and plist declarations before the build.
-The Release metadata cleanup phase preserves this declaration.
-
-The prepared Apple project contains the shared scheme and native dependency inputs.
-Gateway installs the locked dependencies and supplies `NODE_ENV=production` to each native phase.
-`mobile/plugins/withStoreBuild.cjs` owns the native bundle phase and its Node environment input.
-The plugin removes absent test targets from the shared scheme and generates strict Podfile property parsing.
-It explicitly selects React Native and Expo source dependencies, including when the process inherits prebuilt flags.
-The current Expo 57 source config enables the iOS scene lifecycle.
-`expo-build-properties` generates `EXExpoAppSceneDelegate` and `ExpoReactNativeFactoryProvider`.
-The native source dependency flags remain explicit.
-`make mobile-scene-check` verifies this contract through the real Expo generator.
-Android preparation runs `mobile/scripts/prepare-android-build-policy.mjs` after Expo.
-The generated `gradlew` supplies `-Pkotlin.compiler.execution.strategy=in-process`.
-The JVM metaspace limit is `1g`.
-Preparation keeps the heap, parallel execution, workers, ABI selection, and signing inputs unchanged.
-`make mobile-android-policy-check` verifies real launcher arguments and repeated preparation.
-`make mobile-prepare-store` runs `make mobile-podfile-config-check` after native preparation.
-This check uses actual CocoaPods for valid, missing, and malformed properties, plus an unavailable prebuilt service.
-Use `pod install` from `mobile/prepared/ios` for native dependency preparation.
-CocoaPods owns the generated dependency metadata.
-The preparation script configures the release metadata phase through `mobile/scripts/fix-ios-project-warnings.mjs`.
-The phase uses Apple Foundation through `mobile/scripts/strip-release-metadata.swift` and the declared Xcode toolchain.
-It rejects missing or invalid property lists and preserves custom app values and the original file format.
-It removes only the exact Expo development service entries and default description.
-`make mobile-release-metadata-check` executes the generated phase against seven cases on macOS.
-Other platforms check the declared input dependency and skip the six macOS execution cases.
-Native preparation and release validation include this target.
-
-Keep the Android signing files under the ignored `configs/signing/` directory.
-Set their paths and passwords in `configs/.env.loopaware`.
-The Android key must match `mobile/android-release-identity.json`.
-The release adapter uses `MPRLAB_APP_ROOT` to resolve private signing files from the selected checkout.
-It reads the registered certificate identity from the captured source snapshot.
-Gateway reads the selected repository input for iOS signing and store API authentication.
-
-The private configuration supplies these inputs:
-
-- `LOOPAWARE_ANDROID_KEYSTORE`, `LOOPAWARE_ANDROID_STORE_PASSWORD`, `LOOPAWARE_ANDROID_KEY_ALIAS`, and `LOOPAWARE_ANDROID_KEY_PASSWORD`.
-- `LOOPAWARE_APPLE_TEAM`, `LOOPAWARE_APPLE_PROFILE`, and `LOOPAWARE_APPLE_IDENTITY`.
-- `LOOPAWARE_APPLE_CERTIFICATE_BASE64` and `LOOPAWARE_APPLE_CERTIFICATE_PASSWORD`.
-- `APP_STORE_CONNECT_API_KEY_ID`, `APP_STORE_CONNECT_API_ISSUER_ID`, and `APP_STORE_CONNECT_API_KEY_PATH`.
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH`, `NPM_API_KEY`, and `GH_TOKEN`.
-- `JAVA_HOME` and `ANDROID_HOME` for the Android toolchain.
-
-The Apple certificate value contains the base64 PKCS#12 identity, including its private key.
-The profile and certificate identifier must match that identity and the selected application.
-The profile must permit App Store distribution.
-Gateway creates a temporary keychain, imports the identity, and removes its temporary state after the build.
-Authorized build operators must receive these private inputs separately from the Git clone.
-
-Run `make mobile-release-check` to validate prepared inputs, native adapter forwarding, and Android signing behavior.
-The local provider tests use controlled dependencies.
-Actual native signing and store submission remain separate acceptance results.
-
-For a non-mutating inspection, use the installed Gateway's `app-plan-release`, `app-plan-publish`, or `app-plan-deploy` command.
-Pass this repository's Git root through `--app-root`.
-Production activation remains an operator action.
-
-## Docker
-
-Ensure the container receives the placeholder inputs used by `configs/config.loopaware.yml` and mounts that backend runtime config file.
-
-```bash
-touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
-$EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
-./scripts/up.sh
-```
-
-The compose file binds `configs/config.loopaware.yml` into the LoopAware container at `/app/configs/config.loopaware.yml`
-and loads per-service placeholder values via `env_file` from `configs/.env.*`.
-The production Dockerfile pins the Go 1.27.3/Alpine 3.24 build image and Alpine 3.24 runtime image by multi-architecture manifest-list digests.
-When you advance a base, update its human-readable tag and digest together.
-The container runs as root so the SQLite data volume remains writable.
-To use an unprivileged user, configure the Docker image to change the mounted directory owner before it starts the binary.
-
-The default local stack uses `configs/.env.ghttp` for the gHTTP static proxy. Start and stop local Docker stacks only
-through the helper scripts:
-
-```bash
-./scripts/up.sh local
-./scripts/down.sh local
-```
-
-For the computercat TLS stack, use:
-
-```bash
-touch configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
-$EDITOR configs/.env.loopaware.computercat configs/.env.tauth.computercat configs/.env.pinguin.computercat configs/.env.ghttp.computercat
-./scripts/up.sh computercat
-```
-
-The computercat stack exposes `https://computercat.tyemirov.net:4443` through gHTTP as the TLS terminator and reverse
-proxy. The proxy expects certificates at `/media/share/Drive/exchange/certs/computercat/computercat-cert.pem` and
-`/media/share/Drive/exchange/certs/computercat/computercat-key.pem`; Compose mounts only those two files into `/certs`,
-and `config-audit` requires the private key to use mode `0600` whenever it exists.
-`configs/.env.ghttp.computercat` owns the TLS and proxy settings, including `GHTTP_SERVE_DIRECTORY=/data`,
-`GHTTP_SERVE_PORT=4443`, `GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem`,
-`GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem`, and the reverse-proxy routes for TAuth, LoopAware public/API,
-and Sentry paths:
-
-```dotenv
-GHTTP_SERVE_DIRECTORY=/data
-GHTTP_SERVE_PORT=4443
-GHTTP_SERVE_LOGGING_TYPE=JSON
-GHTTP_SERVE_TLS_CERTIFICATE=/certs/computercat-cert.pem
-GHTTP_SERVE_TLS_PRIVATE_KEY=/certs/computercat-key.pem
-GHTTP_SERVE_PROXIES=/tauth.js=http://la-tauth:8082,/me=http://la-tauth:8082,/auth/=http://la-tauth:8082,/public/=http://loopaware-api:8080,/sentry/=http://loopaware-api:8080,/api/=http://loopaware-api:8080
-```
-
-Set the private computercat env files to the public origin `https://computercat.tyemirov.net:4443` so the browser uses the
-reverse proxy for both LoopAware and TAuth; the documentation-only examples intentionally do not provide runnable defaults.
-TAuth requires HTTPS for secure cookies when
-`allow_insecure_http=false`; gHTTP’s reverse proxy does not currently set `X-Forwarded-Proto`, so keep
-`TAUTH_ALLOW_INSECURE_HTTP=true` unless a fronting proxy forwards `X-Forwarded-Proto=https`.
+These commands validate the source with automated tests.
+Hosted deployment, package publication, and mobile store availability require their own operation results.
+The manifest selects internal TestFlight and Google Play tracks for the operator app.
+The operator app is separate from the React Native feedback client embedded in customer apps.
+
+## License and contact
+
+The repository uses the [PolyForm Noncommercial License 1.0.0](LICENSE).
+See the [commercial licensing notice](COMMERCIAL_LICENSE.md) for commercial use and separately licensed materials.
+Contact [legal@mprlab.com](mailto:legal@mprlab.com) for commercial terms.
