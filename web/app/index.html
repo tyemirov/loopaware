@@ -372,6 +372,9 @@
     <img id="dashboard-header-logo" src="/favicon.svg" alt="LoopAware logo" width="44" height="44" />
     <span class="fw-semibold">LoopAware Dashboard</span>
   </span>
+  <button slot="aux" id="header-statistics-button" type="button" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" aria-label="Statistics" title="Global reports" style="min-width:44px;min-height:44px">
+    <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
+  </button>
   <mpr-user
     slot="aux"
     data-loopaware-user-menu="true"
@@ -380,9 +383,6 @@
     logout-label="Logout"
     menu-items='[{"label":"Account Settings","action":"account-settings"}]'
   ></mpr-user>
-  <button slot="aux" id="header-statistics-button" type="button" class="btn btn-outline-secondary d-inline-flex align-items-center justify-content-center" aria-label="Statistics" title="Global reports" style="min-width:44px;min-height:44px">
-    <i class="bi bi-bar-chart-line" aria-hidden="true"></i>
-  </button>
 </mpr-header>
 
     <main class="flex-grow-1">
@@ -1061,7 +1061,6 @@
             <div>
               <h1 class="h3 mb-0">Reports</h1>
             </div>
-            <button id="all-sites-traffic-back-button" type="button" class="btn btn-outline-secondary btn-sm">Back to site dashboard</button>
           </div>
           <div class="row g-4">
             <div class="col-lg-4">
@@ -1641,7 +1640,6 @@
         var settingsOpenAllSitesTrafficButton = document.getElementById('settings-open-all-sites-traffic');
         var siteDashboardView = document.getElementById('site-dashboard-view');
         var allSitesTrafficView = document.getElementById('all-sites-traffic-view');
-        var allSitesTrafficBackButton = document.getElementById('all-sites-traffic-back-button');
         var globalTrafficReportsList = document.getElementById('global-traffic-reports-list');
         var globalTrafficReportCreateButton = document.getElementById('global-traffic-report-create-button');
         var globalTrafficReportTitle = document.getElementById('global-traffic-report-title');
@@ -4761,7 +4759,7 @@
 
         function applyDashboardViewVisibility() {
           var showAllSitesTraffic = isAllSitesTrafficView();
-          var headerNavigationLabel = showAllSitesTraffic ? 'Back to dashboard' : 'Statistics';
+          var headerNavigationLabel = showAllSitesTraffic ? 'Dashboard' : 'Statistics';
           headerStatisticsButton.setAttribute('aria-label', headerNavigationLabel);
           headerStatisticsButton.title = headerNavigationLabel;
           headerStatisticsButton.querySelector('i').className = showAllSitesTraffic ? 'bi bi-speedometer2' : 'bi bi-bar-chart-line';
@@ -6239,18 +6237,41 @@
           return labelTop;
         }
 
+        // Edge coordinates start at 88; country anchors have confidence from 80 through 84.
+        var minimumEdgeCoordinateConfidence = 88;
+
+        function mappedLocation(location) {
+          return (location.source === 'timezone' || (location.source === 'edge_geo' && location.confidence >= minimumEdgeCoordinateConfidence))
+            && location.label !== 'UTC' && location.signal !== 'missing_signal'
+            && (location.country || location.city || location.region || location.latitude !== 0 || location.longitude !== 0);
+        }
+
         function renderLocations(locations) {
           if (!locationsMap) {
             return;
           }
-          var items = Array.isArray(locations) ? locations : [];
+          var allItems = Array.isArray(locations) ? locations : [];
+          var items = allItems.filter(mappedLocation);
+          var unlocated = allItems.filter(function(entry) { return !mappedLocation(entry); });
           var maximum = items.reduce(function(currentMaximum, entry) {
             var value = Number(entry && entry.visit_count);
             return Math.max(currentMaximum, Number.isFinite(value) ? value : 0);
           }, 0);
           locationsMap.innerHTML = '';
-          if (items.length === 0 || maximum <= 0) {
+          if (allItems.length === 0) {
             renderChartMessage(locationsMap, locationsPlaceholder);
+            return;
+          }
+          var summaries = document.createDocumentFragment();
+          unlocated.forEach(function(entry) {
+            var summary = document.createElement('p');
+            summary.className = 'text-muted small px-2 mb-2';
+            var label = entry.source === 'locale' ? 'Browser language region:' : entry.source === 'edge_geo' ? (entry.city || entry.region ? 'Coordinates unavailable:' : 'Country only:') : 'Location unavailable';
+            summary.textContent = label + ' ' + entry.label + ' ' + entry.unique_visitor_count + ' unique visitors ' + entry.visit_count + ' page views';
+            summaries.appendChild(summary);
+          });
+          if (items.length === 0 || maximum <= 0) {
+            locationsMap.appendChild(summaries);
             return;
           }
 
@@ -6433,6 +6454,11 @@
           });
 
           locationsMap.appendChild(svg);
+          var estimateNote = document.createElement('p');
+          estimateNote.className = 'text-muted small px-2 mb-2';
+          estimateNote.textContent = 'Timezone points are estimates.';
+          locationsMap.appendChild(estimateNote);
+          locationsMap.appendChild(summaries);
         }
 
         function renderChartMessage(container, message) {
@@ -6773,13 +6799,6 @@
           });
         }
 
-        function openSelectedSiteTrafficReports() {
-          returnToSiteDashboard().then(function() {
-            setDashboardSection('traffic');
-          }).catch(function() {
-            return null;
-          });
-        }
 
         function returnToSiteDashboard() {
           return flushAllSitesTrafficReportAutosave().then(function() {
@@ -9253,12 +9272,6 @@
               return;
             }
             runHealthMonitorCheck();
-          });
-        }
-        if (allSitesTrafficBackButton) {
-          allSitesTrafficBackButton.addEventListener('click', function(event) {
-            event.preventDefault();
-            openSelectedSiteTrafficReports();
           });
         }
         if (globalTrafficReportCreateButton) {

@@ -49,7 +49,6 @@ const elementIds = Object.freeze([
   'traffic-widget-snippet',
   'site-dashboard-view',
   'all-sites-traffic-view',
-  'all-sites-traffic-back-button',
   'global-traffic-report-library',
   'global-traffic-reports-list',
   'global-traffic-report-create-button',

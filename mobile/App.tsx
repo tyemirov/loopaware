@@ -310,7 +310,11 @@ function AppContent() {
             onBack={() => setScreen("dashboard")} onSignOut={handleSignOut} />
         ) : screen === "statistics" ? (
           <StatisticsScreen key={account!.email} apiClient={apiClient}
-            onBack={() => setScreen("dashboard")}
+            header={<Header account={account!} apiClient={apiClient} screen="statistics"
+              onStatistics={() => setScreen("dashboard")} onSettings={() => {
+                setScreen("settings");
+                void loadAuthenticatedState("current", selectedSiteId, trafficInterval);
+              }} />}
             onSelectSite={site => {
               setSites(current => current?.some(value => value.id === site.id) ? current.map(value => value.id === site.id ? site : value) : [...(current ?? []), site]);
               setScreen("dashboard");
@@ -328,7 +332,7 @@ function AppContent() {
             automaticallyAdjustKeyboardInsets
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.teal} />}
           >
-            <Header account={account!} apiClient={apiClient} onStatistics={() => { Keyboard.dismiss(); setScreen("statistics"); }} onSettings={() => {
+            <Header account={account!} apiClient={apiClient} screen="dashboard" onStatistics={() => { Keyboard.dismiss(); setScreen("statistics"); }} onSettings={() => {
               setScreen("settings");
               void loadAuthenticatedState("current", selectedSiteId, trafficInterval);
             }} />
@@ -399,7 +403,7 @@ function focusNative(element: View | Text | null) {
   if (tag !== null) AccessibilityInfo.setAccessibilityFocus(tag);
 }
 
-function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSettings: () => void; onStatistics: () => void }) {
+function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSettings: () => void; onStatistics: () => void; screen: "dashboard" | "statistics" }) {
   const { styles, colors } = useAppStyles();
   const avatar = useRef<View>(null);
   const menuItem = useRef<View>(null);
@@ -411,16 +415,18 @@ function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSett
         <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>LoopAware</Text>
       </View>
       <View style={styles.headerActions}>
+      <Pressable accessibilityRole="button" accessibilityLabel={props.screen === "statistics" ? "Dashboard" : "Statistics"}
+        accessibilityHint={props.screen === "statistics" ? "View the selected site dashboard" : "View reports across all accessible sites"}
+        style={styles.statisticsButton} onPress={props.onStatistics}>
+        {props.screen === "statistics" ? <Text style={{ fontSize: 30, color: colors.tealDark }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⌂</Text> :
+          <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
+          </View>}
+      </Pressable>
       <Pressable ref={avatar} accessibilityRole="button" accessibilityLabel="Account menu"
         accessibilityHint="Open account options" accessibilityState={{ expanded: menu.visible }}
         style={styles.avatar} onPress={menu.open}>
         <AccountAvatar key={`${props.account.email}:${props.account.avatar?.url ?? ""}`} account={props.account} apiClient={props.apiClient} />
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel="Statistics" accessibilityHint="View reports across all accessible sites"
-        style={styles.statisticsButton} onPress={props.onStatistics}>
-        <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
-        </View>
       </Pressable>
       </View>
       <Modal visible={menu.visible} transparent animationType="none" onRequestClose={() => menu.close("avatar")}
@@ -444,8 +450,8 @@ function SettingsScreen(props: { account: Account; sites: Site[] | null; busy: b
   const heading = useRef<Text>(null);
   const focused = useRef(false);
   return <ScrollView contentContainerStyle={styles.scrollContent} accessibilityLabel="Account settings">
-    <Pressable accessibilityRole="button" onPress={props.onBack} style={styles.backButton}>
-      <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel="Close settings" onPress={props.onBack} style={styles.statisticsButton}>
+      <Text style={styles.secondaryButtonText} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">✕</Text>
     </Pressable>
     <Text ref={heading} accessibilityRole="header" style={styles.settingsTitle} onLayout={() => {
       if (!focused.current) { focused.current = true; focusNative(heading.current); }
@@ -746,10 +752,19 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
 }
 
 const locationMapTouchSize = 44;
+// Edge coordinates start at 88; country anchors have confidence from 80 through 84.
+const minimumEdgeCoordinateConfidence = 88;
 
 function mappedLocation(location: LocationPoint): boolean {
-  return location.label !== "UTC" && location.source !== "unknown" && location.signal !== "missing_signal"
+  return (location.source === "timezone" || (location.source === "edge_geo" && location.confidence >= minimumEdgeCoordinateConfidence))
+    && location.label !== "UTC" && location.signal !== "missing_signal"
     && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
+}
+
+function unmappedLocationLabel(location: LocationPoint): string {
+  if (location.source === "locale") return "Browser language region:";
+  if (location.source === "edge_geo") return location.city || location.region ? "Coordinates unavailable:" : "Country only:";
+  return "Location unavailable";
 }
 
 function locationIdentity(location: LocationPoint): string {
@@ -774,6 +789,7 @@ function LocationMap(props: { locations: LocationPoint[] }) {
   if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
   const description = plotted.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
   return <View style={styles.sectionStack}>
+    {plotted.length > 0 ? <>
     <View testID="location-map-frame" style={styles.locationMapFrame}
       onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
       <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
@@ -792,7 +808,7 @@ function LocationMap(props: { locations: LocationPoint[] }) {
       </View>
     </View>
     {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
-    <Text style={styles.helperText}>Bubble size shows unique visitors.</Text>
+    <Text style={styles.helperText}>Bubble size shows unique visitors. Timezone points are estimates.</Text>
     <View style={styles.locationMapChoices}>
       {plotted.map(location => <Pressable key={locationIdentity(location)} accessibilityRole="button"
         accessibilityLabel={`Select ${location.label} location`}
@@ -807,8 +823,9 @@ function LocationMap(props: { locations: LocationPoint[] }) {
       <Text style={styles.helperText}>{locationCountSummary(selected)}</Text>
       <Text style={styles.helperText}>{selected.source.replace(/_/g, " ")} · {selected.confidence}% location confidence</Text>
     </View> : null}
+    </> : null}
     {unlocated.map(location => <Text key={locationIdentity(location)} style={styles.helperText}>
-      {`Location unavailable ${locationCountSummary(location)}`}
+      {`${unmappedLocationLabel(location)} ${locationCountSummary(location)}`}
     </Text>)}
   </View>;
 }
@@ -929,7 +946,7 @@ function SentrySection(props: { issues: SentryIssue[]; site: Site; headingFocus:
   );
 }
 
-function StatisticsScreen(props: { apiClient: LoopAwareApiClient; onBack: () => void; onSelectSite: (site: Site) => void }) {
+function StatisticsScreen(props: { apiClient: LoopAwareApiClient; header: React.ReactNode; onSelectSite: (site: Site) => void }) {
   const { styles } = useAppStyles();
   const [report, setReport] = useState<VisibleTrafficReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -996,9 +1013,7 @@ function StatisticsScreen(props: { apiClient: LoopAwareApiClient; onBack: () => 
     }
   };
   return <ScrollView contentContainerStyle={styles.scrollContent} accessibilityLabel="Statistics">
-    <Pressable accessibilityRole="button" onPress={props.onBack} style={styles.backButton}>
-      <Text style={styles.secondaryButtonText}>Back to dashboard</Text>
-    </Pressable>
+    {props.header}
     <Text ref={heading} accessibilityRole="header" style={styles.settingsTitle} onLayout={() => {
       if (!focused.current) { focused.current = true; focusNative(heading.current); }
     }}>Statistics</Text>
@@ -1314,7 +1329,6 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
   menuBackdrop: { position: "absolute", top: 0, bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.25)" },
   accountMenu: { marginTop: 58, minWidth: 180, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
   menuItem: { padding: 18, minHeight: 48, justifyContent: "center" },
-  backButton: { minHeight: 44, justifyContent: "center", alignSelf: "flex-start" },
   settingsTitle: { color: colors.ink, fontSize: 28, fontWeight: "800" },
   settingsRole: { paddingVertical: 8, gap: 4 },
   themeChoices: { gap: 10 },

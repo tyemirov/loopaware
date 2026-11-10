@@ -352,6 +352,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
 
   await openDashboard(page, config, portfolioUser);
   await selectSite(page, firstSite.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
@@ -472,6 +473,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
 
   await openDashboard(page, config, portfolioUser);
   await selectSite(page, firstSite.id);
+  await page.locator('#dashboard-section-tab-traffic').click();
   await page.evaluate(() => {
     document.dispatchEvent(new CustomEvent('mpr-user:menu-item', { detail: { action: 'account-settings' } }));
   });
@@ -483,7 +485,7 @@ test('settings entry opens all-sites traffic reporting', async ({ page }) => {
   await expect(page.locator('#global-traffic-report-sites-summary')).toHaveText('2 of 2 sites');
   await expect(page.locator('#global-traffic-report-schedule-chip')).toHaveText('Schedule on');
 
-  await page.locator('#all-sites-traffic-back-button').click();
+  await page.getByRole('button', { name: 'Dashboard', exact: true }).click();
   await expect(page.locator('#site-dashboard-view')).toBeVisible();
   await expect(page.locator('#all-sites-traffic-view')).toBeHidden();
   await expect(page.locator('#dashboard-section-tab-traffic')).toHaveClass(/active/);
@@ -867,7 +869,7 @@ test('location map shows visit distribution with proportional bubbles', async ({
   expect(losAngelesRadius).toBeLessThan(24);
 });
 
-test('location map uses locale signal when timezone is missing', async ({ page }) => {
+test('location map separates browser language from visitor locations', async ({ page }) => {
   const site = await createTrafficSite();
   await collectVisit(config, site, {
     url: `${site.allowed_origin}/locale-only`,
@@ -877,9 +879,9 @@ test('location map uses locale signal when timezone is missing', async ({ page }
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
   await page.locator('#dashboard-section-tab-traffic').click();
-  await expect(page.locator('#locations-map circle[data-location-source="locale"][data-location-signal="US"]')).toBeVisible();
-  await expect(page.locator('#locations-map .traffic-map__bubble-label[data-location-source="locale"][data-location-signal="US"]')).toHaveText('United States');
-  expect(await locationBubbleCount(page, 'locale', 'US')).toBe('1');
+  await expect(page.locator('#locations-map')).toContainText('Browser language region: United States');
+  await expect(page.locator('#locations-map')).toContainText('1 unique visitors');
+  await expect(page.locator('#locations-map circle[data-location-source="locale"]')).toHaveCount(0);
 });
 
 test('location map ignores caller-supplied edge geo metadata', async ({ page }) => {

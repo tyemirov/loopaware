@@ -641,22 +641,22 @@ The query clears when the dashboard view ends, including settings navigation and
 
 ## Web reports
 
-Select the statistics icon immediately right of the account avatar to open the reports view.
-In Reports, this control shows a dashboard icon with the label `Back to dashboard`.
+Select the statistics icon immediately left of the account avatar to open the reports view.
+In Reports, this control shows a dashboard icon with the label `Dashboard`.
 Select the dashboard icon to open the selected site and tab.
 The automatic schedule write completes before the dashboard opens.
 The report library retains custom reports and email schedules.
-Use `Back to site dashboard` to return to the selected site and tab.
+The header icon provides navigation between the dashboard and reports.
 
 ## Mobile statistics
 
-Select the statistics icon immediately right of the account avatar to open `Statistics`.
+Select the statistics icon immediately left of the account avatar to open `Statistics`.
 The report shows traffic for all sites that the account can view, including team sites.
 Global administrators see all sites.
 Statistics remains available when the selected site has no dashboard data.
 
 Select a site row to open that site's overview. The traffic interval remains selected.
-Use `Back to dashboard` to return to the previous site and tab without site selection.
+Select the dashboard icon left of the avatar to open the previous site and tab.
 Statistics loads current data on entry and when the app returns from the background.
 While open, it updates every 30 seconds and recovers automatically after request failures.
 The per-site `Reports` tab contains only the selected-site email schedule.
@@ -707,11 +707,21 @@ Page views appear as explicitly labeled supporting information and include repea
 The mobile client requests `sort=unique_visitors` for detailed breakdowns.
 Web and email reports retain their current page-view ranking.
 
+## Location map signals
+
+Browser language regions and country-only signals appear as counts below the map.
+These signals do not produce map points.
+Unknown and local network signals also appear below the map.
+
+Timezone points are estimates. Edge coordinates require a confidence value of at least 88.
+Country-only edge signals have confidence values from 80 through 84.
+Each row keeps its unique visitor and page view counts.
+
 ## Mobile account settings
 
 Open the avatar menu. Select `Settings` to see the account email, account role, and site access roles.
 The avatar uses the account image, or an email initial when no image is present.
-Use `Back to dashboard` to return to the selected site, tab, and traffic interval.
+Select the close icon to open the selected site, tab, and traffic interval.
 The `Sign out` action is on the settings screen.
 
 Choose `Light`, `Dark`, or `System` under `Appearance`.

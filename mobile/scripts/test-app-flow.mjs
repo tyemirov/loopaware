@@ -30,7 +30,7 @@ const trendPoints = [
 const locationPoints = [
   { label: 'Los Angeles', source: 'timezone', signal: 'America/Los_Angeles', country: 'US', region: '', city: '', latitude: 34.0522, longitude: -118.2437, confidence: 60, visit_count: 12, unique_visitor_count: 8 },
   { label: 'London & <West>', source: 'timezone', signal: 'Europe/London', country: 'GB', region: '', city: '', latitude: 51.5072, longitude: -0.1276, confidence: 60, visit_count: 20, unique_visitor_count: 2 },
-  { label: '12345678901234🌍long', source: 'locale', signal: 'JP', country: 'JP', region: '', city: '', latitude: 35.68, longitude: 139.65, confidence: 20, visit_count: 4, unique_visitor_count: 1 },
+  { label: '12345678901234🌍long', source: 'timezone', signal: 'Asia/Tokyo', country: 'JP', region: '', city: '', latitude: 35.68, longitude: 139.65, confidence: 20, visit_count: 4, unique_visitor_count: 1 },
 ];
 
 // FileReader is a native I/O boundary. Keep the real API requests and image state under test.
@@ -73,6 +73,38 @@ await scenario("mobile Locations uses a geographic map and keeps unknown signals
   assert.match(app.text(), /Moscow 3 unique visitors 3 page views/);
   await app.press("7d");
   assert.match(app.text(), /Los Angeles 23 unique visitors 37 page views/);
+});
+
+for (const platform of /** @type {const} */ (["ios", "android"])) await scenario(`country and browser language counts stay outside the map on ${platform}`, {
+  initialSession: true, trafficProfile: "detailed", platform, locations: [
+    locationPoints[0],
+    { ...locationPoints[0], label: "Edge coordinates", source: "edge_geo", signal: "edge:US:coordinates", confidence: 88 },
+    { ...locationPoints[0], label: "San Francisco", source: "edge_geo", signal: "edge:US:CA:SF", city: "San Francisco", confidence: 95 },
+    { ...locationPoints[0], label: "United States", source: "locale", signal: "US", confidence: 35 },
+    { ...locationPoints[0], label: "United States", source: "edge_geo", signal: "edge:US", confidence: 84 },
+    { ...locationPoints[0], label: "San Francisco, California", source: "edge_geo", signal: "edge:US:CA:SF:no-coordinates", city: "San Francisco", region: "California", confidence: 84 },
+  ],
+}, async app => {
+  await app.press("Traffic");
+  assert(!app.buttonLabels().includes("Show United States on map"));
+  assert(!app.buttonLabels().includes("Select United States location"));
+  assert.doesNotMatch(app.locationMap()?.svg ?? "", /United States/);
+  assert.match(app.text(), /Browser language region: United States 8 unique visitors 12 page views/);
+  assert.match(app.text(), /Country only: United States 8 unique visitors 12 page views/);
+  assert.match(app.text(), /Coordinates unavailable: San Francisco, California 8 unique visitors 12 page views/);
+  assert(app.buttonLabels().includes("Show Los Angeles on map"));
+  assert(app.buttonLabels().includes("Show Edge coordinates on map"));
+  assert(app.buttonLabels().includes("Show San Francisco on map"));
+});
+
+await scenario("browser language alone has counts without a map", {
+  initialSession: true, trafficProfile: "detailed", locations: [
+    { ...locationPoints[0], label: "United States", source: "locale", signal: "US", confidence: 35 },
+  ],
+}, async app => {
+  await app.press("Traffic");
+  assert.equal(app.locationMap(), null);
+  assert.match(app.text(), /Browser language region: United States 8 unique visitors 12 page views/);
 });
 
 const responsiveLocations = [
@@ -165,18 +197,36 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
   await app.press("Traffic"); await app.press("7d");
   await app.press("Statistics");
   assert.equal(app.focused(), "header:Statistics");
+  assert.equal(app.statisticsBesideAvatar(), true);
+  assert(!app.buttonLabels().some(label => /Back to .*dashboard/.test(label)));
   assert.match(app.text(), /All-sites traffic/);
   assert.doesNotMatch(app.text(), /Selected-site report/);
   assert(app.requestURLs.some(url => new URL(url).searchParams.get("scope") === "visible"));
   assert(!app.requests.includes("/api/reports/traffic/portfolio/reports"));
   assert(!app.requests.includes("/api/reports/traffic/portfolio/schedule"));
-  if (platform === "android") await app.back(); else await app.press("Back to dashboard");
+  if (platform === "android") await app.back(); else await app.press("Dashboard");
   assert.equal(app.selected("Traffic"), true);
   assert.equal(app.selected("7d"), true);
   assert.equal(app.selected("Aggregate site"), true);
   await app.press("Reports");
   assert.match(app.text(), /Selected-site report/);
   assert.doesNotMatch(app.text(), /All-sites traffic/);
+});
+
+for (const platform of /** @type {const} */ (["ios", "android"])) await scenario(`statistics account settings keeps dashboard selection on ${platform}`, {
+  initialSession: true, multipleSites: true, platform,
+}, async app => {
+  await app.press("Other site"); await app.press("Traffic"); await app.press("7d");
+  await app.press("Statistics");
+  assert(app.buttonLabels().includes("Dashboard"));
+  assert.equal(app.statisticsBesideAvatar(), true);
+  await app.press("Account menu"); await app.press("Settings");
+  assert(!app.buttonLabels().some(label => /Back to .*dashboard/.test(label)));
+  await app.press("Close settings");
+  assert.equal(app.selected("Other site"), true);
+  assert.equal(app.selected("Traffic"), true);
+  assert.equal(app.selected("7d"), true);
+  assert(!app.buttonLabels().includes("Close account menu"));
 });
 
 await scenario("statistics report rows open the chosen team site overview and preserve the interval", {
@@ -203,7 +253,7 @@ await scenario("statistics automatically updates on foreground and re-entry", { 
   assert(!app.requests.includes("/api/reports/traffic/portfolio"));
   await app.press("Statistics"); assert.match(app.text(), /Visits 35/);
   await app.system("light", true); assert.match(app.text(), /Visits 58/);
-  await app.press("Back to dashboard"); await app.press("Statistics");
+  await app.press("Dashboard"); await app.press("Statistics");
   assert.equal(app.requests.filter(path => path === "/api/reports/traffic/portfolio").length, 3);
 });
 
@@ -222,7 +272,7 @@ await scenario("statistics recovers after reconnection while the screen remains 
   await app.synchronizeStatistics();
   assert.match(app.text(), /Visits 58/); assert.doesNotMatch(app.text(), /Request failed|data unavailable/);
   const count = app.requests.filter(path => path === "/api/reports/traffic/portfolio").length;
-  await app.press("Back to dashboard"); await app.synchronizeStatistics();
+  await app.press("Dashboard"); await app.synchronizeStatistics();
   assert.equal(app.requests.filter(path => path === "/api/reports/traffic/portfolio").length, count);
 });
 
@@ -234,7 +284,7 @@ await scenario("statistics rejects a site row after access is removed", {
   await app.press("Open site Other site");
   assert.match(app.text(), /Site access is no longer available/);
   assert.match(app.text(), /All-sites traffic/);
-  await app.press("Back to dashboard"); assert.equal(app.selected("Aggregate site"), true);
+  await app.press("Dashboard"); assert.equal(app.selected("Aggregate site"), true);
 });
 
 await scenario("mobile avatar resolves the authenticated API image address", {
@@ -463,7 +513,7 @@ await scenario("settings preserve selection and show distinct account and site r
   assert.match(app.text(), /Email owner@example.com Account role Admin/);
   assert.match(app.text(), /Aggregate site Site role:\s+Admin/);
   assert.match(app.text(), /Other site Site role:\s+Team member/);
-  await app.press("Back to dashboard");
+  await app.press("Close settings");
   assert.match(app.text(), /Other site/); assert.match(app.text(), /Daily counts/);
   assert.match(app.text(), /Accepted requests 23/); assert.equal(app.lastInterval(),"1day");
   assert.doesNotMatch(app.text(), /Sign out/);
@@ -493,7 +543,7 @@ for (const empty of [false,true]) await scenario(`settings show ${empty ? "empty
 await scenario("failed sign-out stays in settings with an actionable error", {initialSession:true,logoutFailure:true}, async app => {
   await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out");
   assert.match(app.text(), /Could not sign out.*500/); assert.match(app.text(), /Account role/);
-  await app.press("Back to dashboard"); app.expectSignedIn();
+  await app.press("Close settings"); app.expectSignedIn();
 });
 await scenario("themes follow system changes, persist, and apply throughout the app", {initialSession:true,systemTheme:"dark"}, async app => {
   assert.equal(app.background(),"#101816"); assert.equal(app.statusBarStyle(),"light");
@@ -501,7 +551,7 @@ await scenario("themes follow system changes, persist, and apply throughout the 
   await app.press("Light"); assert.equal(app.nativeAppearance(),"light"); assert.equal(app.background(),"#f5f7f6"); assert.equal(app.storedTheme(),"light");
   await app.system("light"); await app.system("dark"); assert.equal(app.background(),"#f5f7f6"); assert(app.selected("Light"));
   await app.press("Dark"); await app.system("light"); assert.equal(app.background(),"#101816"); assert(app.selected("Dark"));
-  await app.press("Back to dashboard"); assert.equal(app.background(),"#101816");
+  await app.press("Close settings"); assert.equal(app.background(),"#101816");
   await app.remount(); assert.equal(app.background(),"#101816");
   await app.press("Account menu"); await app.press("Settings"); assert(app.selected("Dark"));
   await app.press("System"); assert.equal(app.nativeAppearance(),"unspecified"); assert.equal(app.background(),"#f5f7f6");
@@ -723,7 +773,7 @@ await scenario("late dashboard data cannot replace another selected site", { ini
   assert.match(app.text(), /Requests 23/);
   await app.press("Statistics"); assert.match(app.text(), /Visits 35/);
   await app.release(); assert.match(app.text(), /Visits 35/);
-  await app.press("Back to dashboard");
+  await app.press("Dashboard");
   assert.match(app.text(), /Requests 23/); assert.doesNotMatch(app.text(), /Requests 12/);
 });
 await scenario("late site discovery cannot replace another selected site", { initialSession: true, deferSites: true }, async app => {
@@ -731,7 +781,7 @@ await scenario("late site discovery cannot replace another selected site", { ini
   assert.match(app.text(), /Requests 23/);
   await app.press("Statistics"); assert.match(app.text(), /Visits 35/);
   await app.release(); assert.match(app.text(), /Visits 35/);
-  await app.press("Back to dashboard");
+  await app.press("Dashboard");
   assert.match(app.text(), /Requests 23/); assert.doesNotMatch(app.text(), /Requests 12/);
 });
 await scenario("portfolio failure stays on Statistics and preserves the site dashboard", { initialSession: true, portfolioFailure: true }, async app => {
@@ -739,18 +789,18 @@ await scenario("portfolio failure stays on Statistics and preserves the site das
   await app.press("Statistics");
   assert.match(app.text(), /Request failed with 500/);
   assert.match(app.text(), /All-sites report data unavailable/);
-  await app.press("Back to dashboard"); assert.match(app.text(), /Requests 12/);
+  await app.press("Dashboard"); assert.match(app.text(), /Requests 12/);
 });
 await scenario("late portfolio data cannot replace a new session's reports", { initialSession: true, deferPortfolio: true }, async app => {
   await app.press("Statistics");
-  await app.press("Back to dashboard");
+  await app.press("Dashboard");
   await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out");
   app.setAccount({ email:"zoe@example.com", name:"Zoe", role:"user" });
   await app.signIn(); await app.press("Statistics"); assert.match(app.text(), /Visits 58/);
   await app.release(); assert.match(app.text(), /Visits 58/); assert.doesNotMatch(app.text(), /Visits 35/);
 });
 await scenario("late portfolio completion cannot enable sign-in during a newer Google prompt", { initialSession: true, deferPortfolio: true }, async app => {
-  await app.press("Statistics"); await app.press("Back to dashboard");
+  await app.press("Statistics"); await app.press("Dashboard");
   await app.press("Account menu"); await app.press("Settings"); await app.press("Sign out");
   await app.startPendingSignIn(); app.expectSignInPending();
   await app.release(); app.expectSignInPending();
@@ -1031,11 +1081,11 @@ async function scenario(name, options, check) {
         return map ? {uri:map.props.source.uri,svg:map.props.source.uri.includes(";base64,") ? Buffer.from(map.props.source.uri.split(",")[1], "base64").toString("utf8") : decodeURIComponent(map.props.source.uri.split(",")[1]),label:map.props.accessibilityLabel,aspectRatio:map.props.style.aspectRatio} : null;
       },
       statisticsBesideAvatar() {
-        const statistics = findButton("Statistics");
+        const statistics = findButton("Statistics") ?? findButton("Dashboard");
         const avatar = findButton("Account menu");
         if (!statistics?.parent || statistics.parent !== avatar?.parent) return false;
         const controls = statistics.parent.findAll(node => String(node.type) === "Pressable");
-        return controls.indexOf(avatar) + 1 === controls.indexOf(statistics);
+        return controls.indexOf(statistics) + 1 === controls.indexOf(avatar);
       },
       async type(label,value) { const input=tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]; assert(input,`${name}: ${label}`); await act(async()=>{input.props.onChangeText(value);}); await settle(); },
       inputValue(label) { return tree().root.findAll(node => String(node.type) === "TextInput" && node.props.accessibilityLabel === label)[0]?.props.value ?? null; },
@@ -1048,7 +1098,7 @@ async function scenario(name, options, check) {
       focused() { return device.focused.at(-1) ?? ""; },
       statusBarStyle() { return tree().root.findAll(node => String(node.type) === "StatusBar")[0].props.style; },
       buttonText(label) { const button = findButton(label); assert(button); return textContent(button.findAll(node => String(node.type) === "Text").map(node => node.props.children)); },
-      async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal")[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
+      async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal" && node.props.visible)[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
       siteIcon(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.source?.uri ?? null; },
       siteIconDecorative(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.accessible === false; },
       async siteIconError(label) { await waitFor(() => Boolean(findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0])); const icon = findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]; assert(icon); await act(async () => icon.props.onError()); await settle(); },
