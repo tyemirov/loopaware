@@ -44,7 +44,7 @@ try {
     writeFileSync(join(snapshot, 'private-environment-operation'), `
 const fs = require('node:fs'), assert = require('node:assert/strict');
 const request = JSON.parse(fs.readFileSync(0, 'utf8'));
-assert.deepEqual(request, {root: process.env.MPRLAB_APP_ROOT, keys: ['LOOPAWARE_ANDROID_KEYSTORE', 'LOOPAWARE_ANDROID_STORE_PASSWORD', 'LOOPAWARE_ANDROID_KEY_ALIAS', 'LOOPAWARE_ANDROID_KEY_PASSWORD']});
+assert.deepEqual(request, {root: process.env.MPRLAB_APP_ROOT, keys: ['LOOPAWARE_ANDROID_KEYSTORE', 'LOOPAWARE_ANDROID_STORE_PASSWORD', 'LOOPAWARE_ANDROID_KEY_ALIAS', 'LOOPAWARE_ANDROID_KEY_PASSWORD'], scope: 'provider'});
 if (process.env.TEST_CAPTURED_SIGNING_STATUS) process.exit(Number(process.env.TEST_CAPTURED_SIGNING_STATUS));
 process.stdout.write(process.env.TEST_CAPTURED_SIGNING_INPUTS);
 `);

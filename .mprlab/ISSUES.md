@@ -38,6 +38,31 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B166] (P1) Use the current Android private-input request contract
+  Goal:
+  Read captured Android signing inputs through the installed Gateway provider scope.
+
+  Evidence:
+  The v9.1.0 release attempt for `v1.1.14` failed during mobile artifact preparation after complete CI passed.
+  The adapter omitted the required `scope` field. The SDK rejected the request before credential resolution.
+  Provider scope exposes the native signing variable names. Resource scope uses different canonical input names.
+  The existing real SDK signing fixture bypassed the application capture helper.
+
+  Requirements:
+  - Use explicit provider scope and preserve the consuming repository root.
+  - Keep original-root qualification, registered signing identity, and private-input isolation.
+  - Exercise the actual helper inside the real SDK release fixture.
+  - Preserve the failed release and all retained lifecycle state.
+
+  Validation:
+  Reproduce the failure through the installed runtime, then pass focused mobile checks and complete CI.
+  The real SDK fixture reproduced failure before correction and now reaches controlled Gradle exit 29 for both path forms.
+  All 93 mobile app-flow cases, TypeScript checks, and source-staging checks pass. Full CI remains required.
+
+  Changed files:
+  `mobile/scripts/android-signing.mjs`, `mobile/prepared/scripts/android-signing.mjs`,
+  `tests/mobile/android-signing-source.mjs`, `tests/mobile/android-signing-context.mjs`, and this tracker.
+
 - [x] [B165] (P1) Use current Gateway lifecycle commands
   Goal:
   Run the installed Gateway v9 lifecycle through the public Make targets.

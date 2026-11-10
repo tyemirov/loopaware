@@ -93,12 +93,21 @@ if (result.status !== 0) { process.stderr.write(result.stdout + result.stderr); 
 process.stderr.write('controlled native boundary stopped before bundle compilation\\n');
 process.exit(29);
 `);
+    mkdirSync(join(app, 'mobile/scripts'), { recursive: true });
+    for (const name of ['android-signing.mjs', 'signing-inputs.mjs']) {
+      copyFileSync(join(root, 'mobile/scripts', name), join(app, 'mobile/scripts', name));
+    }
     write(join(app, 'mobile/scripts/build-store-artifact.mjs'), `
+import assert from 'node:assert/strict';
+import { capturedAndroidSigningEnvironment } from './android-signing.mjs';
 import { spawnSync } from 'node:child_process';
 const args = process.argv.slice(2);
 const value = flag => args[args.indexOf(flag) + 1];
 const request = { schema_version: 3, source_root: value('--mobile-dir'), platform: 'android', output: value('--output'), application_identifier: 'com.mprlab.loopaware', version: process.env.MPRLAB_ARTIFACT_VERSION, build_number: '42', release_timestamp: value('--release-timestamp'), verify_script: 'verify.mjs', android: { module: 'app', version_name_environment: 'MPRLAB_MOBILE_VERSION_NAME', version_code_environment: 'MPRLAB_MOBILE_VERSION_CODE', signing_environment: ['LOOPAWARE_ANDROID_KEYSTORE','LOOPAWARE_ANDROID_STORE_PASSWORD','LOOPAWARE_ANDROID_KEY_ALIAS','LOOPAWARE_ANDROID_KEY_PASSWORD'] } };
-const result = spawnSync(process.env.MPRLAB_GATEWAY_EXECUTABLE, ['mobile-build-operation'], { env: { ...process.env, LOOPAWARE_ANDROID_KEYSTORE: '/ambient-shadow-must-not-win.jks' }, input: JSON.stringify(request), encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
+const signing = capturedAndroidSigningEnvironment(process.env.MPRLAB_GATEWAY_EXECUTABLE, process.env.MPRLAB_APP_ROOT, { ...process.env, LOOPAWARE_ANDROID_KEYSTORE: '/ambient-shadow-must-not-win.jks' });
+for (const name of ['LOOPAWARE_ANDROID_KEYSTORE','LOOPAWARE_ANDROID_STORE_PASSWORD','LOOPAWARE_ANDROID_KEY_ALIAS','LOOPAWARE_ANDROID_KEY_PASSWORD']) assert.ok(signing[name]);
+assert.notEqual(signing.LOOPAWARE_ANDROID_KEYSTORE, '/ambient-shadow-must-not-win.jks');
+const result = spawnSync(process.env.MPRLAB_GATEWAY_EXECUTABLE, ['mobile-build-operation'], { env: signing, input: JSON.stringify(request), encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
 if (result.error) throw result.error;
 process.stdout.write(result.stdout); process.stderr.write(result.stderr); process.exit(result.status ?? 2);
 `);
