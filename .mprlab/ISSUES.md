@@ -3945,6 +3945,36 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I058] (P1) Reorganize the README and preserve the reference material
+  Goal:
+  Give readers a concise product overview and a complete first-feedback procedure.
+
+  Requirements:
+  - Move detailed setup, API, dashboard, integration, development, and deployment material into focused guides.
+  - Correct outdated claims, examples, hostnames, and related references.
+  - Preserve substantive details and record their destinations.
+
+  Validation:
+  Independent semantic review covered all 581 source units and found no unresolved losses.
+  Independent architecture review passed after the factual corrections.
+  All 46 local links, 31 Make references, and 48 API route entries passed their checks.
+  The complete YAML example matched the tracked runtime configuration.
+  Documentation language checks and `git diff --check` passed.
+
+  Governor structural checks passed with six unchanged differences in managed guides.
+  Application tests and lifecycle operations were outside this documentation change.
+
+  Resolution:
+  Reduced the README from 927 lines and 7,382 words to 117 lines and 884 words.
+  Preserved detailed instructions in six focused guides.
+  Corrected collection, privacy, access, origin, configuration, and publication statements.
+  Updated the related product, architecture, and React Native references.
+
+  Changed files:
+  `README.md`, `PRD.md`, `ARCHITECTURE.md`, `clients/react-native/README.md`, and this tracker.
+  New guides: `docs/setup.md`, `docs/api.md`, `docs/dashboard.md`, and `docs/integrations.md`.
+  Also added: `docs/development.md` and `docs/deployment.md`.
+
 - [x] [I057] (P1) Reduce Google Play status polling
   Goal:
   Reduce release-state requests during Google Play publication.
