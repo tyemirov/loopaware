@@ -47,7 +47,7 @@ After validation, core mobile state and UI code must use domain values, not raw 
 - Do not use inline conditionals that mix iOS, Android, and shared business logic in screens.
 - Name platform differences in tests and documentation when behavior legitimately diverges.
 - Keep permissions, entitlements, associated domains, URL schemes, intent filters, and store identifiers aligned with checked-in config.
-- Do not assume simulator behavior proves device, store, OAuth, notification, or production callback behavior.
+- Accept simulators, emulators, and automated browsers for device validation. Report store, OAuth, notification, and production callback evidence separately.
 
 ## Build And Store Publication
 
@@ -67,7 +67,7 @@ After validation, core mobile state and UI code must use domain values, not raw 
 
 ## Testing And Validation
 
-- For a behavior change, start with an integration test through the real mobile entry point or app-flow harness.
+- Apply the proportional test sequence in `.mprlab/POLICY.md`. Use integration tests for the changed public contract.
 - Use dependency injection for integration scenarios that are difficult to reproduce.
 - Keep the product logic under test real.
 - Prefer tests through mobile entrypoints, mobile backend clients, config validators, and app-flow harnesses.
@@ -75,7 +75,7 @@ After validation, core mobile state and UI code must use domain values, not raw 
 - During the change, run the smallest mobile target that validates the changed contract.
 - Validate auth, deep links, purchases, secure storage, notification permissions, and API contract parsing at their boundaries.
 - When touching iOS or Android generated/native projects, run the platform-specific prepare/build command documented by the repo.
-- Do not claim production mobile readiness from web-only, simulator-only, or unit-only evidence.
+- Use simulator, emulator, or automated-browser results as sufficient device acceptance. Report production operations separately from code and device validation.
 
 ## Review Checklist
 

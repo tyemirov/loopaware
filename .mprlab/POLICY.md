@@ -1,6 +1,16 @@
 # Confident Programming
 
-This policy controls all agent work in this repository.
+This core policy controls all agent work. Product and platform requirements apply through the conditional guides in root `AGENTS.md`.
+
+## Repository Policy Sections
+
+Governor generates this core policy and the product and deployment guides from shared templates and optional `.mprlab/POLICY.REPOSITORY.md` sections.
+A local section replaces the shared section with the same level-2 heading in its owning guide.
+Unknown local sections extend this core policy. The repository source requires unique headings and the title `# Repository Policy Sections`.
+
+- Put repository-specific requirements in that source and run the normalizer after a source change.
+- Read this core policy for every task. Read the product and deployment guides only for the conditions listed in root `AGENTS.md`.
+- Keep deployment specification and execution policy in the selected application manifest.
 
 ## Temporary Task Files
 
@@ -29,36 +39,16 @@ This policy controls all agent work in this repository.
 - Tests target public contracts and invariants, not defensive branches.
 - Prefer black-box integration and end-to-end tests through real entry points.
 
-## Automatic Data Updates And Persistence
-
-This is a binding product principle for every user interface.
-
-- Load current data automatically when a view opens and when its relevant data changes.
-- Update stale data automatically after reconnection and when the user returns to the view.
-- Never require or expose refresh or reload controls for data synchronization.
-- Persist valid user edits automatically. Never require or expose save controls for data persistence.
-- Show pending, saved, validation, conflict, and failure states without requiring a manual refresh or save.
-- Preserve unsaved edits during background updates, request failures, and concurrent changes.
-- Serialize writes and retain newer edits when an earlier write completes.
-- Keep explicit controls for user intent, such as creation, deletion, activation, and confirmation of consequential actions.
-- Do not use an explicit action as a substitute for automatic data persistence.
-- Verify automatic updates, persistence, error recovery, and account isolation through public interface tests.
-
 ## Test-Driven Development
 
-- Use test-driven development with an inverted test pyramid.
-- Integration tests are the primary test layer.
-- Use focused unit tests for complex algorithms, calculations, and isolated logic when useful.
-- Require integration coverage of public behavior for product acceptance.
-- An integration test must use a real public entry point.
-- For a behavior change, start with the integration test that represents the required public behavior.
-- Run the new or changed integration test before you change production code.
-- Confirm that the integration test fails because the required behavior is absent or incorrect.
-- After this failure, use focused unit tests to guide complex internal implementation when useful.
-- Change the minimum production code necessary to make the integration test pass.
-- Refactor only while the applicable integration tests pass.
-- For a refactor with no behavior change, run the applicable integration tests before you change production code.
-- If focused coverage is absent, add a characterization test before the refactor.
+- Use integration tests as the primary layer for public behavior and component contracts.
+- For a bug fix, first reproduce the failure through the relevant public entry point and confirm its cause.
+- Prefer a failing regression test before the fix. When another reproducible check gives better evidence, record the reason and result.
+- For a behavior change, add or update coverage that exercises the changed public contract. Choose the smallest meaningful check.
+- For a refactor, run relevant existing coverage first. Add characterization coverage where changed behavior is otherwise unprotected.
+- Use focused unit tests for algorithms, calculations, and isolated logic when they provide useful evidence.
+- Documentation, static configuration, and other low-impact changes can use document, schema, build, or structural checks appropriate to their effect.
+- Record a justified exception when the default test sequence adds no useful evidence. A required product acceptance check remains binding.
 - Use deterministic local infrastructure for repository-owned databases, filesystems, queues, servers, and browsers.
 - At an external provider boundary, use a provider sandbox or a local protocol implementation for routine integration tests.
 - Keep live-provider acceptance as a separate qualification step.
@@ -103,117 +93,17 @@ This is a binding product principle for every user interface.
 - The values `0600` and `7777` have no governance meaning.
 - This rule does not change service authorization or operation authority.
 
-## Selected Manifest Contract
-
-Apply this section when the task changes or validates a selected application manifest.
-
-- Keep the selected application manifest versionless.
-- Keep `owner`, `release`, and `lifecycle` as the required baseline fields.
-- Use the fixed `artifacts`, `publications`, and `targets` catalogs.
-- Use explicit identity lists and ordered command lists.
-- Declare CI and execution policy in the selected manifest's `lifecycle` field.
-- Apply the current iOS baseline below before the manifest preservation rules.
-- After this cutover, accept each manifest that an earlier versionless gateway accepted.
-- After this cutover, keep each accepted field name, type, requirement, and function.
-- A field added to an existing shape must be optional.
-- A field added to an existing shape must have one canonical default.
-- Normalize that default before manifest identity calculation.
-- Add a declaration kind only with one closed shape.
-- Reject unknown fields and `schema_version`.
-
-### Current iOS Baseline
-
-The operator selected a fresh iOS contract on September 10, 2026.
-Previous iOS adapter acceptance does not constrain this contract.
-
-- Require `build_system: local` and a repository-relative `.mjs` path in `build.ios`.
-- Build and sign iOS artifacts locally through the shared native builder.
-- Publish the sealed IPA through the shared App Store Connect adapter.
-- Reject iOS `.sh` adapters, Xcode Cloud requests, and cloud publication receipts.
-- Do not add compatibility dispatch, obsolete aliases, or migration requirements for the removed iOS contract.
-- Preserve the declared TestFlight or App Store destination and its export restriction.
-
-This baseline does not authorize removal of stored releases, credentials, or deployment state.
-
-## Static Website Hosting
-
-Apply this section to deployment or publication work for a browser frontend.
-
-- Use GitHub Pages as the production host for each deployable browser frontend.
-- Declare the browser frontend with a `targets.github_pages.sites[]` declaration in `.mprlab/deploy/resources.yml`.
-- Use `gh-pages` as the publication branch.
-- The GitHub Pages repository can differ from the application repository.
-- Keep API and service routes on hostnames that differ from the website hostname.
-- Reserve the GitHub Pages domain and its `www` hostname for GitHub Pages.
-- Treat a container as an artifact source only when its static output goes to GitHub Pages.
-- Verify publication through the public website and `/.mprlab-release.json`.
-- Run the Governor check after each selected manifest change and before each release, publish, or deploy operation.
-
-## Gateway Lifecycle Execution
-
-Apply this section when the repository uses the selected-manifest lifecycle or owns Gateway infrastructure operations.
-
-- Use the installed `mprlab-gateway` runtime for application and infrastructure operations.
-- Preserve `make release && make publish && make deploy` as the application operator command.
-- Pass the selected application Git root through `--app-root`.
-- Use `MPRLAB_GATEWAY_EXECUTABLE` for an explicit installed command.
-- Preserve application source validation, release policy, resource ownership, private inputs, and sealed receipts.
-- Keep each operation and its child calls on one captured runtime package and dependency environment.
-- Keep Gateway inventory and private config under `MPRLAB_GATEWAY_OPERATOR_ROOT`.
-- Use `$HOME/.config/mprlab-gateway` as the default operator root.
-- Select an explicit version with `mprlab-gateway install --version <version>` to change the active runtime.
-- Use Gateway source for repository CI, release preparation, and Gateway publication.
-- Keep installation, application operations, and operator-controlled production activation as separate gates.
-
-## Manifest Environment Resolution
-
-Use this contract for Gateway lifecycle operations that use a selected manifest.
-Manifest processing is the only boundary that reads environment values for Gateway configuration.
-
-- Let manifest values include environment variable references.
-- Use the optional `environment.source` field for a relative or absolute environment file path specified in the manifest.
-- Use the selected consuming repository as the root for relative paths.
-- When the manifest has no `environment.source` field, use only process values.
-- Reject a selected file that is missing or that you cannot read, even when process values are available.
-- When the two sources have a value for a variable, use its process value.
-- Use only the path specified by `environment.source` for an environment file.
-- Do not use a default path or examine other paths for environment files.
-- Do not make an environment file necessary because of a resource kind or lifecycle phase.
-- Read environment values one time at the manifest boundary.
-- During manifest processing, change environment variable references to their values.
-- Validate the configuration before CI, builds, host contact, or provider effects.
-- For each missing necessary reference value, reject the manifest with its variable name and manifest location.
-- Keep private values out of error messages and public diagnostics.
-- Give the validated configuration to subsequent operations.
-- Do not read environment variables or environment files for configuration after manifest processing.
-- Do not change environment references to values in downstream Go, Python, Ansible, or shell code.
-- Supply deployment, publication, and signing credentials from the validated configuration.
-- Keep private configuration values outside public artifacts, plans, receipts, state documents, and logs.
-- Keep each selected application's validated configuration separate.
-- Validate all selected manifests before application-set effects.
-- Use only the selected resources and their specified dependency tree for readiness checks.
-
-Environment files are optional inputs to manifest processing.
-They are not a separate deployment specification or a necessary credential store.
-Provider-native credential stores are provider inputs under their specified contracts.
-They cannot supply Gateway configuration that the selected manifest does not include.
-
 ## Credential Discovery
 
 Use this gate when credentials are necessary for the selected task.
 
-- For Gateway lifecycle operations, find credential references in the selected manifest.
-- During manifest processing, change those references to their values.
-- When a reference has no value, examine only the selected input sources.
-- For other commands, examine only credential sources specified in their documentation.
-- Examine only the specified variable names.
+- Examine only credential sources specified in the active command documentation and only the specified variable names.
 - Use tracked example and sample environment files as documentation only.
-- Do not show or record secret values during diagnosis.
-- Do not make copies of secret values during diagnosis.
+- Do not show, record, or copy secret values during diagnosis.
 - Use each provider's non-mutating authentication command when available.
-- Tell the operator to supply new credentials only after verification rejects the selected input.
-- Show a credential blocker only after this gate finds the missing or incorrect input.
-- Keep certificate and key artifact paths specified in the validated configuration.
+- Request replacement credentials only after verification rejects the selected input. Report the exact missing or incorrect input.
+- For Gateway operations, also read the credential and selected-input rules in `.mprlab/AGENTS.DEPLOYMENT.md`.
+- Preserve the user's account boundaries and global sign-in preparation rules.
 
 ## Issue Closure
 
@@ -230,11 +120,19 @@ Production operations outside the task do not remove code validation requirement
 
 - Use repository-native `make` targets.
 - Do not run a pre-edit or per-issue `make ci` baseline.
-- Preserve the expected failing integration-test result as implementation evidence.
+- Preserve reproduction results and any expected failing regression test as implementation evidence.
 - During the change, run the smallest public-entrypoint target that validates the changed contract.
-- After the last stack change, run `make ci` once at the documented stack completion checkpoint.
-- If this run reports an error, run the target that reports the error during the correction.
-- After the last correction, run `make ci` once.
+- Run full CI once at the end of the change.
+- Use successful full CI from the pull request when its workflow supplies all required checks.
+- Open the pull request after focused local checks pass. Let its workflow supply the final full CI result.
+- Wait for that result before merge or completion.
+- When no pull request supplies full CI, run `make ci` locally after the final change.
+- Use focused checks to correct failures.
+- Repeat the selected full CI gate only at the next final checkpoint after corrections.
+- Reuse successful CI results while the validated code remains unchanged.
+- Use equivalent CI results across local validation, pull requests, and release.
+- Keep separate release checks for additional artifact, signing, or platform coverage.
+- Record the selected CI command, its result, and any required checks outside its coverage.
 - Run `make verify` only when the operator explicitly selects the complete qualification lane.
 - When `make ci` includes `make fmt`, `make lint`, and `make test`, use its result for those targets.
 - During the change or error diagnosis, run the necessary component target.
@@ -248,40 +146,19 @@ Production operations outside the task do not remove code validation requirement
 
 ## Documentation Language
 
-- Write new or changed English technical prose in ASD-STE100 Simplified Technical English, Issue 9.
-- Read `.mprlab/AGENTS.DOCS.md` and `.mprlab/TERMINOLOGY.md` before you write technical prose.
-- Apply this rule to PRDs, architecture documents, issues, plans, policies, ADRs, READMEs, runbooks, and API documents.
-- Do not change technical meaning to make the language simpler.
-- Run the skill `prepare-ste-reference` script to retrieve and verify the official Issue 9 PDF.
-- Run the skill `check-ste` script on each technical document that you change.
-- The producing agent must review Part 1 writing rules and the Part 2 dictionary.
-- Do not assign the reference retrieval or language review to the end user.
-- If the official reference is not available, report a blocker and do not claim compliance.
+- Use concise, consistent American English for technical prose.
+- Preserve facts, product decisions, requirements, conditions, source literals, and ownership boundaries.
+- Read `.mprlab/AGENTS.DOCS.md` and repository terminology before technical prose changes.
+- Use formal ASD-STE100 compliance only when the user or an applicable document contract explicitly requires it.
+- For that selected scope, read `.mprlab/AGENTS.STE.md` and complete its reference and review gates.
+- Report the scope and limits of each review. Mechanical checks alone do not prove factual accuracy or formal language compliance.
 
-## Language Rules
+## JavaScript Modules
 
-### Go
-
-- Use smart constructors returning `(Type, error)` when a type has invariants.
-- Do not export invalid zero-values.
-- Wrap errors with `%w`.
-- Prefer integration tests through real HTTP, CLI, or package entry points.
-- `make lint` must include `go vet`, `staticcheck`, and `ineffassign` when those tools are part of the repo contract.
-
-### Python
-
-- Use `@dataclass(frozen=True)` or Pydantic when already in use.
-- Validate in constructors or edge adapters.
-- Use type hints throughout.
-- Use pytest for integration, end-to-end, and focused unit tests under the shared test-driven development rules.
-
-### JavaScript And Frontend
+Apply these language rules to JavaScript modules, including Node services and command-line tools.
 
 - Put `// @ts-check` at the top of new or edited JavaScript modules when the repo uses checked JS.
 - Use JSDoc typedefs for domain objects and payload contracts.
-- Components render validated state and emit intent.
-- Backend clients own request construction and response validation.
-- User-visible behavior belongs in browser or integration coverage.
 
 ## Self-Check
 
@@ -293,3 +170,10 @@ Before claiming completion:
 - Reusable literals are centralized.
 - Public behavior is covered through public entry points.
 - Repo-native validation was run or a concrete blocker is documented.
+
+## Repository Guide Requirements
+
+These guides retain repository-specific product or operational contracts.
+Preserve those contracts during shared-governance updates. Apply current agent procedures from the core policy.
+
+- Read and retain `.mprlab/AGENTS.APPLE.md` for its task-specific scope.
