@@ -4,93 +4,70 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"log/slog"
 	"regexp"
 	"strings"
 	"time"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
-	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications/pinguinpb"
+	pingwinclient "github.com/tyemirov/pinguin/pkg/client"
+	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 )
 
 // PinguinConfig captures connection settings for the Pinguin notification service.
 type PinguinConfig struct {
-	Address           string
-	AuthToken         string
-	TenantID          string
-	ConnectionTimeout time.Duration
-	OperationTimeout  time.Duration
-	Dialer            func(context.Context, string) (net.Conn, error)
+	Address          string
+	APIKey           string
+	OperationTimeout time.Duration
 }
 
 // PinguinNotifier dispatches notifications through the Pinguin gRPC service.
 type PinguinNotifier struct {
-	logger            *zap.Logger
-	conn              *grpc.ClientConn
-	client            pinguinpb.NotificationServiceClient
-	authToken         string
-	tenantID          string
-	operationTimeout  time.Duration
-	connectionTimeout time.Duration
+	logger           *zap.Logger
+	client           *pingwinclient.NotificationClient
+	operationTimeout time.Duration
 }
 
 var phoneNumberExpression = regexp.MustCompile(`^\+[1-9][0-9]{7,14}$`)
 
-// NewPinguinNotifier creates a notifier backed by the Pinguin gRPC client.
+// NewPinguinNotifier validates configuration and creates a lazy official client.
+// The SDK requires a connection-timeout setting but does not enforce it; sends
+// are bounded by operationTimeout, including connection establishment.
 func NewPinguinNotifier(logger *zap.Logger, cfg PinguinConfig) (*PinguinNotifier, error) {
 	if cfg.Address == "" {
 		return nil, errors.New("pinguin address is required")
 	}
-	if cfg.AuthToken == "" {
-		return nil, errors.New("pinguin auth token is required")
-	}
-	cfg.TenantID = strings.TrimSpace(cfg.TenantID)
-	if cfg.TenantID == "" {
-		return nil, errors.New("pinguin tenant id is required")
-	}
-	if cfg.ConnectionTimeout <= 0 {
-		cfg.ConnectionTimeout = 5 * time.Second
+	if cfg.APIKey == "" {
+		return nil, errors.New("pinguin api key is required")
 	}
 	if cfg.OperationTimeout <= 0 {
 		cfg.OperationTimeout = 30 * time.Second
 	}
 
-	dialCtx, cancel := context.WithTimeout(context.Background(), cfg.ConnectionTimeout)
-	defer cancel()
-
-	dialOptions := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
+	operationTimeoutSeconds := int((cfg.OperationTimeout + time.Second - 1) / time.Second)
+	settings, settingsError := pingwinclient.NewSettings(cfg.Address, cfg.APIKey, 5, operationTimeoutSeconds)
+	if settingsError != nil {
+		return nil, fmt.Errorf("configure pingwin: %w", settingsError)
 	}
-	if cfg.Dialer != nil {
-		dialOptions = append(dialOptions, grpc.WithContextDialer(cfg.Dialer))
-	}
-	conn, dialErr := grpc.DialContext(dialCtx, cfg.Address, dialOptions...)
-	if dialErr != nil {
-		return nil, fmt.Errorf("connect to pinguin: %w", dialErr)
+	client, clientError := pingwinclient.NewNotificationClient(slog.Default(), settings)
+	if clientError != nil {
+		return nil, fmt.Errorf("connect to pingwin: %w", clientError)
 	}
 
 	return &PinguinNotifier{
-		logger:            logger,
-		conn:              conn,
-		client:            pinguinpb.NewNotificationServiceClient(conn),
-		authToken:         cfg.AuthToken,
-		tenantID:          cfg.TenantID,
-		operationTimeout:  cfg.OperationTimeout,
-		connectionTimeout: cfg.ConnectionTimeout,
+		logger:           logger,
+		client:           client,
+		operationTimeout: cfg.OperationTimeout,
 	}, nil
 }
 
 // Close releases the underlying gRPC connection.
 func (notifier *PinguinNotifier) Close() error {
-	if notifier == nil || notifier.conn == nil {
+	if notifier == nil || notifier.client == nil {
 		return nil
 	}
-	return notifier.conn.Close()
+	return notifier.client.Close()
 }
 
 // NotifyFeedback sends a notification describing the feedback submission.
@@ -129,7 +106,6 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -137,7 +113,8 @@ func (notifier *PinguinNotifier) NotifyFeedback(ctx context.Context, site model.
 		return model.FeedbackDeliveryNone, sendErr
 	}
 
-	if response.GetStatus() == pinguinpb.Status_FAILED {
+	notifier.recordNotificationResponse(response)
+	if response.GetStatus() == pinguinpb.Status_ERRORED {
 		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
 		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err), zap.String("site_id", site.ID), zap.String("feedback_id", feedback.ID))
 		return model.FeedbackDeliveryNone, err
@@ -192,7 +169,6 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -200,7 +176,8 @@ func (notifier *PinguinNotifier) NotifySubscription(ctx context.Context, site mo
 		return sendErr
 	}
 
-	if response.GetStatus() == pinguinpb.Status_FAILED {
+	notifier.recordNotificationResponse(response)
+	if response.GetStatus() == pinguinpb.Status_ERRORED {
 		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
 		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err), zap.String("site_id", site.ID), zap.String("subscriber_id", subscriber.ID))
 		return err
@@ -236,7 +213,6 @@ func (notifier *PinguinNotifier) SendEmail(ctx context.Context, recipient string
 
 	callCtx, cancel := context.WithTimeout(ctx, notifier.operationTimeout)
 	defer cancel()
-	callCtx = metadata.AppendToOutgoingContext(callCtx, "authorization", "Bearer "+notifier.authToken, "x-tenant-id", notifier.tenantID)
 
 	response, sendErr := notifier.client.SendNotification(callCtx, request)
 	if sendErr != nil {
@@ -244,13 +220,18 @@ func (notifier *PinguinNotifier) SendEmail(ctx context.Context, recipient string
 		return sendErr
 	}
 
-	if response.GetStatus() == pinguinpb.Status_FAILED {
+	notifier.recordNotificationResponse(response)
+	if response.GetStatus() == pinguinpb.Status_ERRORED {
 		err := fmt.Errorf("notification failed with status %s", response.GetStatus().String())
 		notifier.logger.Warn("pinguin_send_failed_status", zap.Error(err))
 		return err
 	}
 
 	return nil
+}
+
+func (notifier *PinguinNotifier) recordNotificationResponse(response *pinguinpb.NotificationResponse) {
+	notifier.logger.Info("pingwin_notification_accepted", zap.String("notification_id", response.GetNotificationId()), zap.String("status", response.GetStatus().String()))
 }
 
 func determineRecipient(contact string) (pinguinpb.NotificationType, string, string, error) {

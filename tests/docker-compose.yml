@@ -38,7 +38,7 @@ services:
       retries: 6
 
   la-pinguin:
-    image: ghcr.io/tyemirov/pinguin:latest
+    image: ghcr.io/tyemirov/pingwin:latest
     platform: ${LOOPAWARE_TEST_IMAGE_PLATFORM:-linux/amd64}
     restart: unless-stopped
     pull_policy: always

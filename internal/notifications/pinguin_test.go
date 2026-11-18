@@ -11,17 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/grpc/status"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
-	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications/pinguinpb"
+	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
 )
 
 const (
 	testPinguinAddress       = "bufnet"
-	testPinguinAuthToken     = "test-auth-token"
-	testPinguinTenantID      = "test-tenant"
+	testPinguinAPIKey        = "test-auth-token"
 	testFeedbackSiteID       = "site-id"
 	testFeedbackID           = "feedback-id"
 	testFeedbackOwnerEmail   = "owner@example.com"
@@ -36,25 +36,28 @@ const (
 	testNotificationSubject  = "New feedback for"
 	testNotificationAuthKey  = "authorization"
 	testNotificationTenant   = "x-tenant-id"
-	testBufferSize           = 1024 * 1024
 	testSendFailureMessage   = "send failed"
 	testEmailSubject         = "Subject"
 	testEmailMessage         = "Message"
 	testEmptyRecipient       = " "
-	testDefaultConnTimeout   = 5 * time.Second
 	testDefaultOpTimeout     = 30 * time.Second
 )
 
 type testNotificationService struct {
 	pinguinpb.UnimplementedNotificationServiceServer
-	responseStatus pinguinpb.Status
-	responseError  error
-	mutex          sync.Mutex
-	lastRequest    *pinguinpb.NotificationRequest
-	lastMetadata   metadata.MD
+	responseStatus     pinguinpb.Status
+	responseError      error
+	blockUntilDeadline bool
+	mutex              sync.Mutex
+	lastRequest        *pinguinpb.NotificationRequest
+	lastMetadata       metadata.MD
 }
 
 func (service *testNotificationService) SendNotification(requestContext context.Context, request *pinguinpb.NotificationRequest) (*pinguinpb.NotificationResponse, error) {
+	if service.blockUntilDeadline {
+		<-requestContext.Done()
+		return nil, status.FromContextError(requestContext.Err()).Err()
+	}
 	service.mutex.Lock()
 	service.lastRequest = request
 	service.lastMetadata, _ = metadata.FromIncomingContext(requestContext)
@@ -77,10 +80,13 @@ func (service *testNotificationService) recordedRequest() (*pinguinpb.Notificati
 	return service.lastRequest, service.lastMetadata
 }
 
-func startNotificationServer(testingT *testing.T, service *testNotificationService) *bufconn.Listener {
-	listener := bufconn.Listen(testBufferSize)
+func startNotificationServer(testingT *testing.T, service *testNotificationService) net.Listener {
+	listener, listenError := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(testingT, listenError)
 	grpcServer := grpc.NewServer()
-	pinguinpb.RegisterNotificationServiceServer(grpcServer, service)
+	serviceDescription := pinguinpb.NotificationService_ServiceDesc
+	serviceDescription.ServiceName = "pingwin.NotificationService"
+	grpcServer.RegisterService(&serviceDescription, service)
 
 	go func() {
 		_ = grpcServer.Serve(listener)
@@ -94,12 +100,6 @@ func startNotificationServer(testingT *testing.T, service *testNotificationServi
 	return listener
 }
 
-func createPinguinDialer(listener *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
-	return func(requestContext context.Context, _ string) (net.Conn, error) {
-		return listener.DialContext(requestContext)
-	}
-}
-
 func TestNewPinguinNotifierValidatesConfig(testingT *testing.T) {
 	testCases := []struct {
 		name        string
@@ -108,18 +108,13 @@ func TestNewPinguinNotifierValidatesConfig(testingT *testing.T) {
 	}{
 		{
 			name:        "missing address",
-			config:      PinguinConfig{AuthToken: testPinguinAuthToken, TenantID: testPinguinTenantID},
+			config:      PinguinConfig{APIKey: testPinguinAPIKey},
 			expectError: "pinguin address is required",
 		},
 		{
-			name:        "missing auth token",
-			config:      PinguinConfig{Address: "127.0.0.1:1", TenantID: testPinguinTenantID},
-			expectError: "pinguin auth token is required",
-		},
-		{
-			name:        "missing tenant id",
-			config:      PinguinConfig{Address: "127.0.0.1:1", AuthToken: testPinguinAuthToken},
-			expectError: "pinguin tenant id is required",
+			name:        "missing api key",
+			config:      PinguinConfig{Address: "127.0.0.1:1"},
+			expectError: "pinguin api key is required",
 		},
 	}
 
@@ -137,12 +132,9 @@ func TestNotifyFeedbackSendsEmailNotification(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -171,8 +163,8 @@ func TestNotifyFeedbackSendsEmailNotification(testingT *testing.T) {
 	require.Equal(testingT, testFeedbackOwnerEmail, recordedRequest.GetRecipient())
 	require.Contains(testingT, recordedRequest.GetSubject(), testNotificationSubject)
 	require.Contains(testingT, recordedRequest.GetMessage(), "Source: "+testFeedbackSourceURL)
-	require.Contains(testingT, recordedMetadata.Get(testNotificationAuthKey)[0], testPinguinAuthToken)
-	require.Contains(testingT, recordedMetadata.Get(testNotificationTenant)[0], testPinguinTenantID)
+	require.Equal(testingT, []string{"Bearer " + testPinguinAPIKey}, recordedMetadata.Get(testNotificationAuthKey))
+	require.Empty(testingT, recordedMetadata.Get(testNotificationTenant))
 }
 
 func TestNotifyFeedbackIncludesSentiment(testingT *testing.T) {
@@ -180,12 +172,9 @@ func TestNotifyFeedbackIncludesSentiment(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -214,16 +203,13 @@ func TestNotifyFeedbackIncludesSentiment(testingT *testing.T) {
 }
 
 func TestNotifyFeedbackReturnsErrorOnFailedStatus(testingT *testing.T) {
-	service := &testNotificationService{responseStatus: pinguinpb.Status_FAILED}
+	service := &testNotificationService{responseStatus: pinguinpb.Status_ERRORED}
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -250,12 +236,9 @@ func TestNotifyFeedbackReturnsErrorOnUnknownRecipient(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -282,12 +265,9 @@ func TestNotifySubscriptionSendsEmailNotification(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -311,16 +291,13 @@ func TestNotifySubscriptionSendsEmailNotification(testingT *testing.T) {
 }
 
 func TestNotifySubscriptionReturnsErrorOnFailedStatus(testingT *testing.T) {
-	service := &testNotificationService{responseStatus: pinguinpb.Status_FAILED}
+	service := &testNotificationService{responseStatus: pinguinpb.Status_ERRORED}
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -348,12 +325,9 @@ func TestNotifySubscriptionReturnsErrorOnSendFailure(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -381,12 +355,9 @@ func TestSendEmailValidatesRecipient(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -404,16 +375,13 @@ func TestSendEmailValidatesRecipient(testingT *testing.T) {
 }
 
 func TestSendEmailReturnsErrorOnFailedStatus(testingT *testing.T) {
-	service := &testNotificationService{responseStatus: pinguinpb.Status_FAILED}
+	service := &testNotificationService{responseStatus: pinguinpb.Status_ERRORED}
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -465,12 +433,9 @@ func TestNotifyFeedbackReturnsErrorWhenSendFails(testingT *testing.T) {
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: time.Second,
-		OperationTimeout:  time.Second,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: time.Second,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
@@ -492,23 +457,46 @@ func TestNotifyFeedbackReturnsErrorWhenSendFails(testingT *testing.T) {
 	require.Equal(testingT, model.FeedbackDeliveryNone, delivery)
 }
 
+func TestPinguinLazyConnectionBoundsUnavailableSend(testingT *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(testingT, err)
+	address := listener.Addr().String()
+	require.NoError(testingT, listener.Close())
+	notifier, err := NewPinguinNotifier(zap.NewNop(), PinguinConfig{Address: address, APIKey: testPinguinAPIKey, OperationTimeout: 50 * time.Millisecond})
+	require.NoError(testingT, err)
+	testingT.Cleanup(func() { _ = notifier.Close() })
+	started := time.Now()
+	err = notifier.SendEmail(context.Background(), "user@example.com", "Subject", "Body")
+	require.Error(testingT, err)
+	require.Less(testingT, time.Since(started), 2*time.Second)
+}
+
+func TestPinguinSendEnforcesOperationDeadline(testingT *testing.T) {
+	service := &testNotificationService{blockUntilDeadline: true}
+	listener := startNotificationServer(testingT, service)
+	notifier, err := NewPinguinNotifier(zap.NewNop(), PinguinConfig{Address: listener.Addr().String(), APIKey: testPinguinAPIKey, OperationTimeout: 50 * time.Millisecond})
+	require.NoError(testingT, err)
+	testingT.Cleanup(func() { _ = notifier.Close() })
+	started := time.Now()
+	err = notifier.SendEmail(context.Background(), "user@example.com", "Subject", "Body")
+	require.Equal(testingT, codes.DeadlineExceeded, status.Code(err))
+	require.GreaterOrEqual(testingT, time.Since(started), 40*time.Millisecond)
+	require.Less(testingT, time.Since(started), time.Second)
+}
+
 func TestNewPinguinNotifierDefaultsTimeouts(testingT *testing.T) {
 	service := &testNotificationService{responseStatus: pinguinpb.Status_SENT}
 	listener := startNotificationServer(testingT, service)
 
 	notifier, createErr := NewPinguinNotifier(zap.NewNop(), PinguinConfig{
-		Address:           testPinguinAddress,
-		AuthToken:         testPinguinAuthToken,
-		TenantID:          testPinguinTenantID,
-		ConnectionTimeout: 0,
-		OperationTimeout:  0,
-		Dialer:            createPinguinDialer(listener),
+		Address:          listener.Addr().String(),
+		APIKey:           testPinguinAPIKey,
+		OperationTimeout: 0,
 	})
 	require.NoError(testingT, createErr)
 	testingT.Cleanup(func() {
 		_ = notifier.Close()
 	})
 
-	require.Equal(testingT, testDefaultConnTimeout, notifier.connectionTimeout)
 	require.Equal(testingT, testDefaultOpTimeout, notifier.operationTimeout)
 }

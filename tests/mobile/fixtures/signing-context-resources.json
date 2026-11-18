@@ -288,8 +288,8 @@
           "variable": "NPM_API_KEY"
         },
         {
-          "id": "pinguin-auth-token",
-          "variable": "PINGUIN_AUTH_TOKEN"
+          "id": "pinguin-tenant-api-key",
+          "variable": "PINGUIN_TENANT_API_KEY"
         },
         {
           "id": "session-secret",

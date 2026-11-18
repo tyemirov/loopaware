@@ -258,6 +258,14 @@ test: test-integration
 test-unit:
 	go run ./tools/testmonitor -- ./...
 
+.PHONY: test-notifications
+test-notifications:
+	go run ./tools/testmonitor -- ./internal/notifications ./internal/serverconfig ./cmd/server ./cmd/configaudit
+
+.PHONY: test-live-notifications
+test-live-notifications:
+	go test -tags=live ./internal/notifications -run '^TestPingwinLiveEmail$$' -count=1 -v
+
 .PHONY: test-traffic-interval
 test-traffic-interval:
 	go run ./tools/testmonitor -- ./internal/api -run 'TestSevenDayTraffic|TestParseTrafficInterval' -count=1

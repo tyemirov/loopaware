@@ -41,9 +41,7 @@ type Config struct {
 	TrustedEdgeGeoProxyCIDRs  []netip.Prefix
 	ConfigFilePath            string
 	PinguinAddress            string
-	PinguinAuthToken          string
-	PinguinTenantID           string
-	PinguinConnTimeoutSec     int
+	PinguinAPIKey             string
 	PinguinOpTimeoutSec       int
 	SubscriptionNotifications bool
 	TrafficReportEmails       bool
@@ -95,11 +93,9 @@ type Tauth struct {
 
 // Pinguin holds notification service runtime settings.
 type Pinguin struct {
-	Address                  string `yaml:"address"`
-	AuthToken                string `yaml:"auth_token"`
-	TenantID                 string `yaml:"tenant_id"`
-	ConnectionTimeoutSeconds int    `yaml:"connection_timeout_seconds"`
-	OperationTimeoutSeconds  int    `yaml:"operation_timeout_seconds"`
+	Address                 string `yaml:"address"`
+	APIKey                  string `yaml:"api_key"`
+	OperationTimeoutSeconds int    `yaml:"operation_timeout_seconds"`
 }
 
 // Notifications holds outbound notification toggles.
@@ -149,9 +145,7 @@ func NewConfig(configFilePath string, document Document) (Config, error) {
 		PublicBaseURL:             strings.TrimSpace(document.Server.PublicBaseURL),
 		ConfigFilePath:            strings.TrimSpace(configFilePath),
 		PinguinAddress:            strings.TrimSpace(document.Pinguin.Address),
-		PinguinAuthToken:          strings.TrimSpace(document.Pinguin.AuthToken),
-		PinguinTenantID:           strings.TrimSpace(document.Pinguin.TenantID),
-		PinguinConnTimeoutSec:     document.Pinguin.ConnectionTimeoutSeconds,
+		PinguinAPIKey:             strings.TrimSpace(document.Pinguin.APIKey),
 		PinguinOpTimeoutSec:       document.Pinguin.OperationTimeoutSeconds,
 		SubscriptionNotifications: boolValue(document.Notifications.SubscriptionEnabled),
 		TrafficReportEmails:       boolValue(document.Notifications.TrafficReportEmailsEnabled),
@@ -252,11 +246,7 @@ func missingRequiredFields(config Config, document Document) []string {
 	appendBlankField("auth.tauth.jwt_signing_key", config.TauthSigningKey)
 	appendBlankField("auth.tauth.session_cookie_name", config.TauthSessionCookieName)
 	appendBlankField("pinguin.address", config.PinguinAddress)
-	appendBlankField("pinguin.auth_token", config.PinguinAuthToken)
-	appendBlankField("pinguin.tenant_id", config.PinguinTenantID)
-	if config.PinguinConnTimeoutSec <= 0 {
-		missingFields = append(missingFields, "pinguin.connection_timeout_seconds")
-	}
+	appendBlankField("pinguin.api_key", config.PinguinAPIKey)
 	if config.PinguinOpTimeoutSec <= 0 {
 		missingFields = append(missingFields, "pinguin.operation_timeout_seconds")
 	}

@@ -5,11 +5,11 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 repository_root=$(CDPATH= cd -- "${script_dir}/.." && pwd)
 dockerfile="${repository_root}/Dockerfile"
 
-build_base='FROM golang:1.27.3-alpine3.24@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build'
+build_base='FROM golang:1.27.4-alpine3.24@sha256:70bd7ddea8b6cbe5d6943cde279d6b67feb10cc924fb9100d1d8757c1575b280 AS build'
 runtime_base='FROM alpine:3.24@sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b'
 
 if ! grep -Fqx "${build_base}" "${dockerfile}"; then
-  echo "container_base_audit_failed: Dockerfile build base must use the approved multi-architecture Go 1.27.3/Alpine 3.24 digest" >&2
+  echo "container_base_audit_failed: Dockerfile build base must use the approved multi-architecture Go 1.27.4/Alpine 3.24 digest" >&2
   exit 1
 fi
 

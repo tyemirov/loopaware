@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -120,7 +119,6 @@ type ServerRunner func(*http.Server) error
 type ServerApplication struct {
 	databaseOpener DatabaseOpener
 	serverRunner   ServerRunner
-	pinguinDialer  func(context.Context, string) (net.Conn, error)
 }
 
 // NewServerApplication creates a ServerApplication with default dependencies.
@@ -142,12 +140,6 @@ func (application *ServerApplication) WithDatabaseOpener(databaseOpener Database
 // WithServerRunner overrides the HTTP server runner dependency.
 func (application *ServerApplication) WithServerRunner(serverRunner ServerRunner) *ServerApplication {
 	application.serverRunner = serverRunner
-	return application
-}
-
-// WithPinguinDialer overrides the Pinguin gRPC dialer dependency.
-func (application *ServerApplication) WithPinguinDialer(dialer func(context.Context, string) (net.Conn, error)) *ServerApplication {
-	application.pinguinDialer = dialer
 	return application
 }
 
@@ -242,12 +234,9 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	subscriptionEvents := api.NewSubscriptionTestEventBroadcaster()
 	defer subscriptionEvents.Close()
 	pinguinNotifier, notifierErr := notifications.NewPinguinNotifier(logger, notifications.PinguinConfig{
-		Address:           serverConfig.PinguinAddress,
-		AuthToken:         serverConfig.PinguinAuthToken,
-		TenantID:          serverConfig.PinguinTenantID,
-		ConnectionTimeout: time.Duration(serverConfig.PinguinConnTimeoutSec) * time.Second,
-		OperationTimeout:  time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
-		Dialer:            application.pinguinDialer,
+		Address:          serverConfig.PinguinAddress,
+		APIKey:           serverConfig.PinguinAPIKey,
+		OperationTimeout: time.Duration(serverConfig.PinguinOpTimeoutSec) * time.Second,
 	})
 	if notifierErr != nil {
 		logger.Fatal("pinguin_notifier", zap.Error(notifierErr))

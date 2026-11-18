@@ -22,9 +22,7 @@ auth:
 
 pinguin:
   address: "${PINGUIN_ADDR}"
-  auth_token: "${PINGUIN_AUTH_TOKEN}"
-  tenant_id: "${PINGUIN_TENANT_ID}"
-  connection_timeout_seconds: 5
+  api_key: "${PINGUIN_TENANT_API_KEY}"
   operation_timeout_seconds: 30
 
 notifications:
