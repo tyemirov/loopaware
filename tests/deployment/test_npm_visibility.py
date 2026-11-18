@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tarfile
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
@@ -29,6 +30,15 @@ RESOURCE = "react-native-client"
 VERIFY_OPERATION = "app_publish.npm.version_verify"
 ARCHIVE_OPERATION = "app_publish.npm.archive_read"
 CAPTURE_VARIABLE = "MPRLAB_LISTENER_EXECUTION_POLICY"
+
+
+@dataclass(frozen=True)
+class Gateway:
+    """One installed runtime selected by the real controller invocation."""
+
+    action_module: ModuleType
+    ansible_root: Path
+    executable: Path
 
 
 class Clock:
@@ -124,12 +134,25 @@ def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subpr
     git("push", "-u", "origin", "master")
     git("remote", "set-head", "origin", "master")
 
-    # Echo the child argv instead of executing the Ansible plan or contacting providers.
-    echo = shutil.which("echo")
-    assert echo is not None, "The deployment test requires the echo executable"
+    # Capture the actual Ansible child boundary as JSON. Python's startup hook
+    # exits before it can interpret the inventory as a script. Other Python
+    # children retain normal startup; no provider or Ansible plan is executed.
+    boundary = directory / "ansible-boundary"
+    boundary.mkdir()
+    capture = directory / "ansible-invocation.json"
+    (boundary / "sitecustomize.py").write_text(
+        "import json, os, pathlib, sys\n"
+        "if sys.orig_argv[1:2] == ['-i'] and '--connection' in sys.orig_argv and 'ANSIBLE_CONFIG' in os.environ:\n"
+        f"    pathlib.Path({str(capture)!r}).write_text(json.dumps({{\n"
+        "        'argv': sys.orig_argv[1:],\n"
+        "        'environment': {name: os.environ[name] for name in ['ANSIBLE_CONFIG', 'MPRLAB_GATEWAY_EXECUTABLE']}\n"
+        "    }))\n"
+        "    os._exit(0)\n"
+    )
+    environment["PYTHONPATH"] = str(boundary)
     return subprocess.run(
         [str(executable), "app-plan-release", "--app-root", str(repository),
-         "--operator-root", str(operator), "--ansible-inventory", str(inventory), "--ansible-playbook", echo],
+         "--operator-root", str(operator), "--ansible-inventory", str(inventory), "--ansible-playbook", sys.executable],
         stdin=subprocess.DEVNULL,
         env=environment,
         capture_output=True,
@@ -140,23 +163,32 @@ def controller_plan(executable: Path, directory: Path, manifest: bytes) -> subpr
 
 
 @pytest.fixture(scope="module")
-def gateway(tmp_path_factory: pytest.TempPathFactory) -> tuple[ModuleType, Path]:
-    executable = Path(os.environ["MPRLAB_GATEWAY_EXECUTABLE"]).resolve(strict=True)
-    ansible_root = executable.parents[1] / "deploy/ansible"
-    validation = controller_plan(executable, tmp_path_factory.mktemp("valid-controller-plan"), MANIFEST_PATH.read_bytes())
+def gateway(tmp_path_factory: pytest.TempPathFactory) -> Gateway:
+    selected = shutil.which(os.environ["MPRLAB_GATEWAY_EXECUTABLE"])
+    assert selected is not None, "The selected installed Gateway executable must be available on PATH"
+    executable = Path(selected).absolute()
+    directory = tmp_path_factory.mktemp("valid controller plan")
+    validation = controller_plan(executable, directory, MANIFEST_PATH.read_bytes())
     assert validation.returncode == 0, validation.stderr
-    assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") in validation.stdout
+    invocation = json.loads((directory / "ansible-invocation.json").read_text())
+    ansible_config = Path(invocation["environment"]["ANSIBLE_CONFIG"]).resolve(strict=True)
+    assert ansible_config.name == "ansible.cfg"
+    ansible_root = ansible_config.parent
+    captured_executable = Path(invocation["environment"]["MPRLAB_GATEWAY_EXECUTABLE"]).resolve(strict=True)
+    assert invocation["argv"] == [
+        "-i", str(directory.resolve() / "operator/inventory/hosts.yml"), "--connection", "local",
+        str(ansible_root / "playbooks/app-lifecycle-plan.yml"),
+    ]
     spec = importlib.util.spec_from_file_location(
         "npm_visibility_action", ansible_root / "action_plugins/mprlab_network_operation.py"
     )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module, ansible_root
+    return Gateway(module, ansible_root, captured_executable)
 
 
-def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
-    _, ansible_root = gateway
-    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+def test_controller_rejects_unbounded_attempts(gateway: Gateway, tmp_path: Path) -> None:
+    executable = gateway.executable
     document = yaml.safe_load(MANIFEST_PATH.read_text())
     operations = document["mprlab_resources"]["lifecycle"]["operations"]
     index = next(index for index, entry in enumerate(operations) if entry["name"] == VERIFY_OPERATION)
@@ -164,18 +196,17 @@ def test_controller_rejects_unbounded_attempts(gateway: tuple[ModuleType, Path],
     validation = controller_plan(executable, tmp_path, yaml.safe_dump(document).encode())
     assert validation.returncode == 2
     assert f"/mprlab_resources/lifecycle/operations/{index}/polling/attempt_limit: invalid minimum" in validation.stderr
-    assert str(ansible_root / "playbooks/app-lifecycle-plan.yml") not in validation.stdout
+    assert not (tmp_path / "ansible-invocation.json").exists()
 
 
 
 @pytest.mark.parametrize("phase", ["release", "publish", "deploy"])
 @pytest.mark.parametrize("scenario", ["caller-precedence", "selected-file", "missing-selected-file"])
 def test_lifecycle_make_environment(
-    gateway: tuple[ModuleType, Path], tmp_path: Path, phase: str, scenario: str,
+    gateway: Gateway, tmp_path: Path, phase: str, scenario: str,
 ) -> None:
     """Resolve synthetic Make inputs through the installed SDK manifest boundary."""
-    _, ansible_root = gateway
-    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    executable = gateway.executable
     repository = tmp_path / "application checkout"
     manifest = prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
     shutil.copyfile(MANIFEST_PATH.parents[2] / "Makefile", repository / "Makefile")
@@ -229,7 +260,7 @@ def test_lifecycle_make_environment(
         assert observed["stdin"] == ""
 
 
-def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path) -> subprocess.CompletedProcess[str]:
+def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path, executable: Path) -> subprocess.CompletedProcess[str]:
     """Run the installed surface reader and envelope assertion through real Ansible."""
     lifecycle = yaml.safe_load((ansible_root / "playbooks/app-lifecycle-plan.yml").read_text())
     read_surface = next(task for task in lifecycle[0]["tasks"]
@@ -247,7 +278,7 @@ def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path)
         },
         "tasks": [read_surface, envelope],
     }]))
-    environment = fixture_environment(directory, ansible_root.parents[1] / "bin/mprlab-gateway")
+    environment = fixture_environment(directory, executable)
     environment["ANSIBLE_NOCOLOR"] = "1"
     return subprocess.run(
         ["ansible-playbook", "-i", "localhost,", str(playbook)],
@@ -255,32 +286,34 @@ def run_manifest_envelope(repository: Path, directory: Path, ansible_root: Path)
     )
 
 
-def test_tracked_application_manifest_envelope(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
-    _, ansible_root = gateway
-    result = run_manifest_envelope(MANIFEST_PATH.parents[2], tmp_path, ansible_root)
+def test_tracked_application_manifest_envelope(gateway: Gateway, tmp_path: Path) -> None:
+    ansible_root = gateway.ansible_root
+    executable = gateway.executable
+    result = run_manifest_envelope(MANIFEST_PATH.parents[2], tmp_path, ansible_root, executable)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_manifest_envelope_rejects_extra_tracked_file(gateway: tuple[ModuleType, Path], tmp_path: Path) -> None:
-    _, ansible_root = gateway
+def test_manifest_envelope_rejects_extra_tracked_file(gateway: Gateway, tmp_path: Path) -> None:
+    ansible_root = gateway.ansible_root
+    executable = gateway.executable
     repository = tmp_path / "app"
     forbidden = repository / ".mprlab/deploy/tests/extra.txt"
     forbidden.parent.mkdir(parents=True)
     forbidden.write_text("Forbidden deployment surface fixture\n")
     manifest = repository / ".mprlab/deploy/resources.yml"
     manifest.write_bytes(MANIFEST_PATH.read_bytes())
-    environment = fixture_environment(tmp_path, ansible_root.parents[1] / "bin/mprlab-gateway")
+    environment = fixture_environment(tmp_path, executable)
     for arguments in (("init",), ("add", ".mprlab/deploy")):
         subprocess.run(["git", "-C", str(repository), *arguments], env=environment,
                        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30, check=True)
-    result = run_manifest_envelope(repository, tmp_path, ansible_root)
+    result = run_manifest_envelope(repository, tmp_path, ansible_root, executable)
     assert result.returncode == 2, result.stdout + result.stderr
     assert "app_lifecycle.invalid_manifest: selected application must track the single manifest" in result.stdout
 
 
-def synthetic_capture(gateway: tuple[ModuleType, Path], tmp_path: Path) -> dict:
-    action_module, ansible_root = gateway
-    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+def synthetic_capture(gateway: Gateway, tmp_path: Path) -> dict:
+    action_module = gateway.action_module
+    executable = gateway.executable
     repository = tmp_path / "application"
     manifest = prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
     environment = fixture_environment(tmp_path, executable)
@@ -311,12 +344,12 @@ print(json.dumps({'descriptor':capture,'envelope':envelope}))
 
 
 @pytest.fixture
-def capture(gateway: tuple[ModuleType, Path], tmp_path: Path) -> dict:
+def capture(gateway: Gateway, tmp_path: Path) -> dict:
     return synthetic_capture(gateway, tmp_path)
 
 
 def test_bootstrap_capture_excludes_ambient_context(
-    gateway: tuple[ModuleType, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    gateway: Gateway, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     for name in (
         "NPM_API_KEY", "GH_TOKEN", "GITHUB_TOKEN", "NODE_AUTH_TOKEN",
@@ -329,11 +362,11 @@ def test_bootstrap_capture_excludes_ambient_context(
 
 
 def test_full_deploy_preserves_release_and_publication_windows(
-    gateway: tuple[ModuleType, Path], tmp_path: Path,
+    gateway: Gateway, tmp_path: Path,
 ) -> None:
     """Keep declared phase windows inside the installed full-deploy parent."""
-    _, ansible_root = gateway
-    executable = ansible_root.parents[1] / "bin/mprlab-gateway"
+    ansible_root = gateway.ansible_root
+    executable = gateway.executable
     repository = tmp_path / "application"
     prepare_synthetic_application(repository, MANIFEST_PATH.read_bytes())
     environment = fixture_environment(tmp_path, executable)
@@ -394,8 +427,10 @@ print(json.dumps(observed))
 
 
 @pytest.fixture
-def observe(gateway: tuple[ModuleType, Path], capture: dict, monkeypatch: pytest.MonkeyPatch) -> Callable:
-    action_module, ansible_root = gateway
+def observe(gateway: Gateway, capture: dict, monkeypatch: pytest.MonkeyPatch) -> Callable:
+    action_module = gateway.action_module
+    ansible_root = gateway.ansible_root
+    executable = gateway.executable
     manifest = action_module._contract.mprlab_captured_manifest(json.dumps(capture))["mprlab_resources"]
     retry_policy = yaml.safe_load((ansible_root / "playbooks/vars/app-lifecycle-contract.yml").read_text())["mprlab_network_retry_policy"]
     publication = next(entry for entry in manifest["publications"]["npm"]["packages"] if entry["id"] == RESOURCE)
@@ -408,7 +443,7 @@ def observe(gateway: tuple[ModuleType, Path], capture: dict, monkeypatch: pytest
                           "--cache", "/synthetic/archive/cache", "--registry", publication["registry"],
                           "--userconfig", "/dev/stdin"] if operation == ARCHIVE_OPERATION else
                          ["view", package, "--json", "--registry", publication["registry"]])
-        command = [os.environ["MPRLAB_GATEWAY_EXECUTABLE"], "owned-command-operation", "--", "npm", *npm_arguments]
+        command = [str(executable), "owned-command-operation", "--", "npm", *npm_arguments]
         descriptor = capture.copy()
         if parent_seconds is not None:
             descriptor["parent_deadline"] = (datetime.now(timezone.utc) + timedelta(seconds=parent_seconds)).isoformat()
@@ -477,8 +512,8 @@ def test_initial_version_read_keeps_the_existing_attempt_limit(observe: Callable
     assert len(calls) == 4
 
 
-def test_publish_mutation_keeps_the_existing_retry_policy(gateway: tuple[ModuleType, Path], capture: dict) -> None:
-    action_module, _ = gateway
+def test_publish_mutation_keeps_the_existing_retry_policy(gateway: Gateway, capture: dict) -> None:
+    action_module = gateway.action_module
     contract = action_module._contract
     policy = contract.mprlab_execution_policy(json.dumps(capture), "app_publish.npm.publish")
     plan = action_module._retry.compile_plan(contract.mprlab_execution_polling(policy))
@@ -487,9 +522,9 @@ def test_publish_mutation_keeps_the_existing_retry_policy(gateway: tuple[ModuleT
 
 
 def test_archive_policy_matches_version_visibility_without_new_deadlines(
-    gateway: tuple[ModuleType, Path], capture: dict,
+    gateway: Gateway, capture: dict,
 ) -> None:
-    action_module, _ = gateway
+    action_module = gateway.action_module
     contract = action_module._contract
     archive = contract.mprlab_execution_policy(json.dumps(capture), ARCHIVE_OPERATION)
     version = contract.mprlab_execution_policy(json.dumps(capture), VERIFY_OPERATION)

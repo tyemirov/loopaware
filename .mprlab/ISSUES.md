@@ -38,6 +38,12 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B173] (P1) Select the installed Gateway runtime in deployment policy tests
+  Evidence: The fixture treated a command name as a local path and derived runtime assets from launcher ancestry. The installed launcher selects a sealed runtime with a separate executable and assets.
+  Change: Resolve the configured command through PATH. Capture structured arguments and the selected Ansible config and physical executable at the real controller child boundary. Keep that runtime identity throughout the policy fixtures without contacting providers.
+  Validation: Preserve all publication-window, authentication, retry, manifest, and environment-isolation assertions. Exercise both the default command and an explicit installed executable, including a fixture path with spaces. Final CI and delivery remain pending.
+  Focused result: `make deployment-npm-visibility-check` passed all 30 cases with the default command and again with the explicit installed launcher.
+
 - [ ] [B172] (P1) Restore the current mobile dependency audit
   Evidence: The deepmerge advisory was withdrawn on November 16, 2026. Its obsolete review deadline stopped the controlled audit. Current npm audit separately reports GHSA-474x-hrwr-fgx4 in fast-xml-parser 5.11.1.
   Change: Resolve patched fast-xml-parser 5.12.1 through the existing dependency ranges. Retire the withdrawn advisory exception and its expiration contract. Preserve the local deepmerge patch, provenance, exact installations, and runtime behavior checks. Reject every registry vulnerability and invalid report.
