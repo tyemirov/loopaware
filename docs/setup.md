@@ -17,7 +17,7 @@ The browser frontend requires network access to its CDN dependencies.
 2. Create the four private configuration files in the Configuration section below.
 3. Supply each placeholder in the three service YAML files.
 4. Configure the LoopAware Google client and tenant for `http://localhost:8080`.
-5. Set `TAUTH_CONFIG_FILE=/config/config.yml` and `PINGUIN_CONFIG_PATH=/config/config.yml` in their service input files.
+5. Set `TAUTH_CONFIG_FILE=/config/config.yml` in its service input file. Pingwin reads the mounted `/config/config.yml`.
 6. Set gHTTP to serve `/data` on port `8080`.
 7. Configure gHTTP routes for TAuth, `/public/`, `/sentry/`, `/api/`, and `/healthz`.
 8. Run `make config-audit` to validate configuration.
@@ -118,9 +118,7 @@ auth:
     session_cookie_name: "${TAUTH_SESSION_COOKIE_NAME}"
 pinguin:
   address: "${PINGUIN_ADDR}"
-  auth_token: "${PINGUIN_AUTH_TOKEN}"
-  tenant_id: "${PINGUIN_TENANT_ID}"
-  connection_timeout_seconds: 5
+  api_key: "${PINGUIN_TENANT_API_KEY}"
   operation_timeout_seconds: 30
 notifications:
   subscription_enabled: true
@@ -148,8 +146,7 @@ The local Compose env files provide shell values for placeholders used by `confi
 | `TAUTH_JWT_SIGNING_KEY`| ✅        | JWT signing key used to validate `app_session`              |
 | `TAUTH_SESSION_COOKIE_NAME` | ✅   | Session cookie name set by TAuth                            |
 | `PINGUIN_ADDR`         | ✅        | Pingwin gRPC address                                        |
-| `PINGUIN_AUTH_TOKEN`   | ✅        | Bearer token passed to the Pingwin gRPC service             |
-| `PINGUIN_TENANT_ID`    | ✅        | Tenant identifier used when calling the Pingwin gRPC API     |
+| `PINGUIN_TENANT_API_KEY` | ✅      | Managed tenant API key issued by Pingwin                    |
 
 Secrets can remain outside the tracked file with placeholders. Non-secret settings can be literal YAML values when that is clearer for the environment.
 
@@ -169,9 +166,10 @@ touch configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.en
 $EDITOR configs/.env.loopaware configs/.env.tauth configs/.env.pinguin configs/.env.ghttp
 ```
 
-Pingwin and LoopAware must share the same bearer secret. Set Pingwin's `GRPC_AUTH_TOKEN` and LoopAware's `PINGUIN_AUTH_TOKEN` to identical values in their respective service env files.
-`configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`, and `configs/.env.pinguin` must set
-`PINGUIN_CONFIG_PATH=/config/config.yml`, matching the files mounted by Docker Compose. `configs/.env.loopaware` must
+Set `PINGUIN_TENANT_API_KEY` to the API key issued for the LoopAware tenant in Pingwin. Pingwin derives the tenant and SMTP profile from that key. The application uses the official Pingwin client and sends bearer authorization without a caller-selected tenant.
+Client construction validates configuration and creates a lazy connection. The send operation timeout bounds connection establishment and delivery; construction does not establish provider readiness.
+Local Compose uses `ghcr.io/tyemirov/pingwin:latest`. Local SMTP acceptance requires a managed tenant and SMTP profile in that local provider. The verified production mail route is a separate environment.
+`configs/.env.tauth` must set `TAUTH_CONFIG_FILE=/config/config.yml`. Pingwin reads the mounted `/config/config.yml`. `configs/.env.loopaware` must
 define every placeholder referenced by `configs/config.loopaware.yml`. Those values are expanded only while parsing the
 YAML file. They are not a second runtime config source.
 
@@ -239,8 +237,7 @@ TAUTH_SESSION_COOKIE_NAME=loopaware_development_session \
 PUBLIC_BASE_URL=http://localhost:8080 \
 TRUSTED_PROXY_CIDR=192.0.2.1/32 \
 PINGUIN_ADDR=localhost:50051 \
-PINGUIN_AUTH_TOKEN=replace-with-pinguin-token \
-PINGUIN_TENANT_ID=loopaware \
+PINGUIN_TENANT_API_KEY=replace-with-pingwin-tenant-api-key \
 go run ./cmd/server --config=configs/config.loopaware.yml
 ```
 

@@ -65,8 +65,8 @@ mprlab_resources:
               variable: MPRLAB_TAUTH_PROVISIONING_CREDENTIALS
             - id: npm-api-key
               variable: NPM_API_KEY
-            - id: pinguin-auth-token
-              variable: PINGUIN_AUTH_TOKEN
+            - id: pinguin-tenant-api-key
+              variable: PINGUIN_TENANT_API_KEY
             - id: session-secret
               variable: SESSION_SECRET
             - id: tauth-tenant-google-android-client-id-loopaware
@@ -315,13 +315,11 @@ mprlab_resources:
                           value: sqlite
                         - name: DB_DSN
                           value: file:/app/data/loopaware.sqlite?_foreign_keys=on
-                        - capability: pinguin.grpc
+                        - capability: pingwin.grpc.private-lan
                           component: address
                           name: PINGUIN_ADDR
-                        - input: pinguin-auth-token
-                          name: PINGUIN_AUTH_TOKEN
-                        - name: PINGUIN_TENANT_ID
-                          value: loopaware
+                        - input: pinguin-tenant-api-key
+                          name: PINGUIN_TENANT_API_KEY
                         - name: PUBLIC_BASE_URL
                           output: origin
                           target: website

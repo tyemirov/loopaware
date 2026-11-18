@@ -35,7 +35,7 @@ func TestSelectedApplicationManifestUsesVersionlessContract(testingT *testing.T)
 		"GOOGLE_PLAY_SERVICE_ACCOUNT_KEY_PATH", "LOOPAWARE_ANDROID_KEYSTORE", "LOOPAWARE_ANDROID_KEY_ALIAS",
 		"LOOPAWARE_ANDROID_KEY_PASSWORD", "LOOPAWARE_ANDROID_STORE_PASSWORD", "LOOPAWARE_APPLE_CERTIFICATE_BASE64",
 		"LOOPAWARE_APPLE_CERTIFICATE_PASSWORD", "LOOPAWARE_APPLE_IDENTITY", "LOOPAWARE_APPLE_PROFILE", "LOOPAWARE_APPLE_TEAM",
-		"NPM_API_KEY", "PINGUIN_AUTH_TOKEN", "SESSION_SECRET", "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE",
+		"NPM_API_KEY", "PINGUIN_TENANT_API_KEY", "SESSION_SECRET", "TAUTH_TENANT_GOOGLE_ANDROID_CLIENT_ID_LOOPAWARE",
 		"TAUTH_TENANT_GOOGLE_IOS_CLIENT_ID_LOOPAWARE", "TAUTH_TENANT_GOOGLE_WEB_CLIENT_ID_LOOPAWARE",
 		"TAUTH_TENANT_JWT_SIGNING_KEY_LOOPAWARE", "DEPLOY_SUDO_PASSWORD_TUTOSH",
 		"MPRLAB_TAUTH_MANAGEMENT_URL", "MPRLAB_TAUTH_PROVISIONING_CREDENTIALS",
@@ -112,9 +112,7 @@ func validLoopAwareRuntimeConfigYAML() string {
 		"    session_cookie_name: \"${TAUTH_SESSION_COOKIE_NAME}\"",
 		"pinguin:",
 		"  address: \"${PINGUIN_ADDR}\"",
-		"  auth_token: \"${PINGUIN_AUTH_TOKEN}\"",
-		"  tenant_id: \"${PINGUIN_TENANT_ID}\"",
-		"  connection_timeout_seconds: 5",
+		"  api_key: \"${PINGUIN_TENANT_API_KEY}\"",
 		"  operation_timeout_seconds: 30",
 		"notifications:",
 		"  subscription_enabled: true",
@@ -151,8 +149,7 @@ func loopAwareRuntimeEnvironmentLines() []string {
 		"PUBLIC_BASE_URL=" + testPublicBaseURLValue,
 		"TRUSTED_PROXY_CIDR=192.0.2.10/32",
 		"PINGUIN_ADDR=" + testPinguinAddressValue,
-		"PINGUIN_AUTH_TOKEN=" + testAuthTokenValue,
-		"PINGUIN_TENANT_ID=" + testTenantValue,
+		"PINGUIN_TENANT_API_KEY=" + testAuthTokenValue,
 	}
 }
 
@@ -288,7 +285,6 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 		"TAUTH_SIGNING_KEY=" + testSharedSigningKeyValue,
 		"LOOPAWARE_LOCAL_GOOGLE_CLIENT_ID=" + testGoogleClientValue,
 		"GRPC_AUTH_TOKEN=" + testAuthTokenValue,
-		"PINGUIN_TENANT_ID=" + testTenantValue,
 		"",
 	}, "\n")
 	require.NoError(testingT, os.WriteFile(pinguinEnvPath, []byte(pinguinEnv), 0o600))
@@ -301,7 +297,6 @@ func TestRunAuditReportsErrorsForMissingEnvironment(testingT *testing.T) {
 		"    env_file:",
 		"      - " + testLoopAwareEnvFile,
 		"    environment:",
-		"      PINGUIN_TENANT_ID: " + testTenantValue,
 		"    volumes:",
 		"      - ./config/" + testConfigTemplateFile + ":/config/config.yml",
 		"      - " + loopAwareConfigVolume,
@@ -391,7 +386,7 @@ func TestRunAuditAllowsCrossServiceOperatorValueDrift(testingT *testing.T) {
 	loopAwareEnvironmentLines[5] = "TAUTH_TENANT_ID=loopaware"
 	loopAwareEnvironmentLines[6] = "TAUTH_JWT_SIGNING_KEY=loopaware-owned-signing-key"
 	loopAwareEnvironmentLines[7] = "TAUTH_SESSION_COOKIE_NAME=loopaware-owned-session"
-	loopAwareEnvironmentLines[11] = "PINGUIN_AUTH_TOKEN=loopaware-owned-pinguin-token"
+	loopAwareEnvironmentLines[11] = "PINGUIN_TENANT_API_KEY=loopaware-owned-pinguin-token"
 	loopAwareEnv := strings.Join(append(loopAwareEnvironmentLines, ""), "\n")
 	require.NoError(testingT, os.WriteFile(loopAwareEnvPath, []byte(loopAwareEnv), 0o600))
 

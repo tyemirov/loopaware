@@ -17,7 +17,7 @@ services:
     container_name: la-pinguin
     depends_on:
       - la-tauth
-    image: ghcr.io/tyemirov/pinguin:latest
+    image: ghcr.io/tyemirov/pingwin:latest
     restart: unless-stopped
     pull_policy: always
     env_file:

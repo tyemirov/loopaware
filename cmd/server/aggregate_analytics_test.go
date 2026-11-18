@@ -33,7 +33,7 @@ func TestServerRetainsOnlyCurrentAggregateCounts(testingT *testing.T) {
 	}
 	require.NoError(testingT, database.Create(&rows).Error)
 	listener := startPinguinServer(testingT)
-	application := NewServerApplication().WithDatabaseOpener(func(storage.Config) (*gorm.DB, error) { return database, nil }).WithPinguinDialer(createPinguinDialer(listener))
+	application := NewServerApplication().WithDatabaseOpener(func(storage.Config) (*gorm.DB, error) { return database, nil })
 	application.WithServerRunner(func(server *http.Server) error {
 		httpServer := httptest.NewServer(server.Handler)
 		defer httpServer.Close()
@@ -64,6 +64,6 @@ func TestServerRetainsOnlyCurrentAggregateCounts(testingT *testing.T) {
 	})
 	command, err := application.Command()
 	require.NoError(testingT, err)
-	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, writeServerConfig(testingT, validServerConfigYAML(testPinguinAddress))))
+	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, writeServerConfig(testingT, validServerConfigYAML(listener.Addr().String()))))
 	require.NoError(testingT, command.Execute())
 }

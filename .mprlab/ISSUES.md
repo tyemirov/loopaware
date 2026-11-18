@@ -38,6 +38,12 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B171] (P1) Restore delivery through the current managed Pingwin client
+  Evidence: The deployed traffic-report test failed. The source notifier called the removed `pinguin.NotificationService`; the current service returned `Unimplemented`.
+  Change: Use official client v1.1.12, managed tenant API key authorization, current private-LAN capability, and strict current config. Remove copied protocol bindings and caller-selected tenants. Client construction is lazy; operation deadlines bound sends.
+  Local Compose uses the current Pingwin image and mounted config. Focused validation also proves a blocking RPC returns `DeadlineExceeded` within the configured operation budget.
+  Validation: Current-wire adapter tests and configuration checks cover bearer authorization, payloads, failure statuses, and unavailable delivery. The actual application notifier sent `notif-1795039975621360578` to the owner's Gmail; SPF, DKIM, and DMARC passed. Final CI and delivery remain pending.
+
 - [x] [B170] (P1) Remove country-only points from the location map
   Goal:
   Show map points only when the signal has more detail than a country or browser language.

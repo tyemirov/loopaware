@@ -17,15 +17,14 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/test/bufconn"
 	"gorm.io/gorm"
 
-	"github.com/MarkoPoloResearchLab/loopaware/internal/notifications/pinguinpb"
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
+	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
 )
 
 const (
-	testAuthTokenValue              = "test-auth-token"
+	testAPIKeyValue                 = "test-auth-token"
 	testTenantValue                 = "test-tenant"
 	testSessionSecretValue          = "test-session-secret"
 	testTauthBaseURLValue           = "http://tauth.test"
@@ -61,8 +60,9 @@ func (stub *stubNotificationServer) GetNotificationStatus(context.Context, *ping
 	return &pinguinpb.NotificationResponse{Status: pinguinpb.Status_SENT}, nil
 }
 
-func startPinguinServer(testingT *testing.T) *bufconn.Listener {
-	listener := bufconn.Listen(testBufferSize)
+func startPinguinServer(testingT *testing.T) net.Listener {
+	listener, listenError := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(testingT, listenError)
 	grpcServer := grpc.NewServer()
 	pinguinpb.RegisterNotificationServiceServer(grpcServer, &stubNotificationServer{})
 
@@ -76,12 +76,6 @@ func startPinguinServer(testingT *testing.T) *bufconn.Listener {
 	})
 
 	return listener
-}
-
-func createPinguinDialer(listener *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
-	return func(requestContext context.Context, _ string) (net.Conn, error) {
-		return listener.DialContext(requestContext)
-	}
 }
 
 func validServerConfigYAML(pinguinAddress string) string {
@@ -106,9 +100,7 @@ func validServerConfigYAML(pinguinAddress string) string {
 		"    session_cookie_name: \"" + testTauthCookieNameValue + "\"",
 		"pinguin:",
 		"  address: \"" + pinguinAddress + "\"",
-		"  auth_token: \"" + testAuthTokenValue + "\"",
-		"  tenant_id: \"" + testTenantValue + "\"",
-		"  connection_timeout_seconds: 1",
+		"  api_key: \"" + testAPIKeyValue + "\"",
 		"  operation_timeout_seconds: 1",
 		"notifications:",
 		"  subscription_enabled: true",
@@ -130,16 +122,6 @@ func TestNewServerApplicationHasDefaults(testingT *testing.T) {
 	application := NewServerApplication()
 	require.NotNil(testingT, application.databaseOpener)
 	require.NotNil(testingT, application.serverRunner)
-	require.Nil(testingT, application.pinguinDialer)
-}
-
-func TestWithPinguinDialerOverrides(testingT *testing.T) {
-	application := NewServerApplication()
-	application.WithPinguinDialer(func(context.Context, string) (net.Conn, error) {
-		return nil, errors.New("dialer error")
-	})
-
-	require.NotNil(testingT, application.pinguinDialer)
 }
 
 func TestWithDatabaseOpenerOverrides(testingT *testing.T) {
@@ -241,7 +223,6 @@ func TestRequestBodyLimitUsesRouteSpecificBounds(testingT *testing.T) {
 func TestLoadServerConfigExpandsShellValuesOnlyDuringConfigParse(testingT *testing.T) {
 	application := NewServerApplication()
 	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), testSessionSecretValue, "${"+testEnvironmentSessionSecretKey+"}")
-	configPayload = strings.ReplaceAll(configPayload, "connection_timeout_seconds: 1", "connection_timeout_seconds: ${"+testEnvironmentTimeoutKey+"}")
 	configPayload = strings.ReplaceAll(configPayload, "traffic_report_emails_enabled: true", "traffic_report_emails_enabled: ${"+testEnvironmentTrafficEmailsKey+"}")
 	configPath := writeServerConfig(testingT, configPayload)
 
@@ -252,7 +233,6 @@ func TestLoadServerConfigExpandsShellValuesOnlyDuringConfigParse(testingT *testi
 	config, loadErr := application.loadServerConfig(configPath)
 	require.NoError(testingT, loadErr)
 	require.Equal(testingT, testSessionSecretValue, config.SessionSecret)
-	require.Equal(testingT, 2, config.PinguinConnTimeoutSec)
 	require.False(testingT, config.TrafficReportEmails)
 }
 
@@ -278,12 +258,12 @@ func TestLoadServerConfigRejectsUnknownYAMLFields(testingT *testing.T) {
 
 func TestLoadServerConfigRejectsMissingRequiredValues(testingT *testing.T) {
 	application := NewServerApplication()
-	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "auth_token: \""+testAuthTokenValue+"\"", "auth_token: \"\"")
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "api_key: \""+testAPIKeyValue+"\"", "api_key: \"\"")
 	configPath := writeServerConfig(testingT, configPayload)
 
 	_, loadErr := application.loadServerConfig(configPath)
 	require.Error(testingT, loadErr)
-	require.ErrorContains(testingT, loadErr, "pinguin.auth_token")
+	require.ErrorContains(testingT, loadErr, "pinguin.api_key")
 }
 
 func TestLoadServerConfigValidatesTrustedProxyBoundaries(testingT *testing.T) {
@@ -376,13 +356,13 @@ func TestLoadServerConfigDoesNotUseAdminEnvironmentOverride(testingT *testing.T)
 
 func TestLoadServerConfigDoesNotUseSharedPinguinAuthAlias(testingT *testing.T) {
 	application := NewServerApplication()
-	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "auth_token: \""+testAuthTokenValue+"\"", "auth_token: \"\"")
+	configPayload := strings.ReplaceAll(validServerConfigYAML(testPinguinAddress), "api_key: \""+testAPIKeyValue+"\"", "api_key: \"\"")
 	configPath := writeServerConfig(testingT, configPayload)
-	testingT.Setenv("GRPC_AUTH_TOKEN", testAuthTokenValue)
+	testingT.Setenv("GRPC_AUTH_TOKEN", testAPIKeyValue)
 
 	_, loadErr := application.loadServerConfig(configPath)
 	require.Error(testingT, loadErr)
-	require.ErrorContains(testingT, loadErr, "pinguin.auth_token")
+	require.ErrorContains(testingT, loadErr, "pinguin.api_key")
 }
 
 func TestLoadServerConfigRejectsBrowserRuntimeConfigShape(testingT *testing.T) {
@@ -431,10 +411,9 @@ func TestLogAdministratorWarningEmitsWhenMissing(testingT *testing.T) {
 
 func TestRunCommandUsesServerRunner(testingT *testing.T) {
 	listener := startPinguinServer(testingT)
-	configPath := writeServerConfig(testingT, validServerConfigYAML(testPinguinAddress))
+	configPath := writeServerConfig(testingT, validServerConfigYAML(listener.Addr().String()))
 
 	application := NewServerApplication()
-	application.WithPinguinDialer(createPinguinDialer(listener))
 	command, commandErr := application.Command()
 	require.NoError(testingT, commandErr)
 	require.NoError(testingT, command.Flags().Set(flagNameConfigFile, configPath))
