@@ -38,24 +38,24 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
-- [ ] [B173] (P1) Select the installed Gateway runtime in deployment policy tests
+- [x] [B173] (P1) Select the installed Gateway runtime in deployment policy tests
   Evidence: The fixture treated a command name as a local path and derived runtime assets from launcher ancestry. The installed launcher selects a sealed runtime with a separate executable and assets.
   Change: Resolve the configured command through PATH. Capture structured arguments and the selected Ansible config and physical executable at the real controller child boundary. Keep that runtime identity throughout the policy fixtures without contacting providers.
-  Validation: Preserve all publication-window, authentication, retry, manifest, and environment-isolation assertions. Exercise both the default command and an explicit installed executable, including a fixture path with spaces. Final CI and delivery remain pending.
+  Validation: All publication-window, authentication, retry, manifest, and environment-isolation assertions pass. Both the default command and an explicit installed executable pass, including a fixture path with spaces. Final local CI passed at `4ae7e0f`; source delivery is PR #439.
   Focused result: `make deployment-npm-visibility-check` passed all 30 cases with the default command and again with the explicit installed launcher.
 
-- [ ] [B172] (P1) Restore the current mobile dependency audit
+- [x] [B172] (P1) Restore the current mobile dependency audit
   Evidence: The deepmerge advisory was withdrawn on November 16, 2026. Its obsolete review deadline stopped the controlled audit. Current npm audit separately reports GHSA-474x-hrwr-fgx4 in fast-xml-parser 5.11.1.
   Change: Resolve patched fast-xml-parser 5.12.1 through the existing dependency ranges. Retire the withdrawn advisory exception and its expiration contract. Preserve the local deepmerge patch, provenance, exact installations, and runtime behavior checks. Reject every registry vulnerability and invalid report.
-  Validation: Controlled audit cases cover zero findings, reported findings, malformed counts, registry failures, incorrect provenance, unexpected installations, and altered local code. Regenerate the prepared tree through the canonical preparation command. Final CI and delivery remain pending.
+  Validation: Controlled audit cases cover zero findings, reported findings, malformed counts, registry failures, incorrect provenance, unexpected installations, and altered local code. Canonical preparation and the synchronized audit inputs pass. Final local CI passed at `4ae7e0f`; source delivery is PR #439.
   Focused result: Canonical preparation, source and prepared audits and behavior checks, audit controls, preparation checks, native configuration checks, and mobile type and app-flow checks passed. The prepared product snapshots retain their prior content; audit and dependency inputs are synchronized.
   `GOTOOLCHAIN=go1.27.4 make security-audit` passed, including the zero-vulnerability dependency gate.
 
-- [ ] [B171] (P1) Restore delivery through the current managed Pingwin client
+- [x] [B171] (P1) Restore delivery through the current managed Pingwin client
   Evidence: The deployed traffic-report test failed. The source notifier called the removed `pinguin.NotificationService`; the current service returned `Unimplemented`.
   Change: Use official client v1.1.12, managed tenant API key authorization, current private-LAN capability, and strict current config. Remove copied protocol bindings and caller-selected tenants. Client construction is lazy; operation deadlines bound sends.
   Local Compose uses the current Pingwin image and mounted config. Focused validation also proves a blocking RPC returns `DeadlineExceeded` within the configured operation budget.
-  Validation: Current-wire adapter tests and configuration checks cover bearer authorization, payloads, failure statuses, and unavailable delivery. The actual application notifier sent `notif-1795039975621360578` to the owner's Gmail; SPF, DKIM, and DMARC passed. Final CI and delivery remain pending.
+  Validation: Current-wire adapter tests and configuration checks cover bearer authorization, payloads, failure statuses, and unavailable delivery. The actual application notifier sent `notif-1795039975621360578` to the owner's Gmail; SPF, DKIM, and DMARC passed. Final local CI passed at `4ae7e0f` with Go 1.27.4 and Android Studio JDK 21, including all 484 browser scenarios. Source delivery is PR #439; production activation is separate. Hosted CI remains blocked by private registry access.
 
 - [x] [B170] (P1) Remove country-only points from the location map
   Goal:
