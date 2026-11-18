@@ -38,6 +38,13 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [ ] [B172] (P1) Restore the current mobile dependency audit
+  Evidence: The deepmerge advisory was withdrawn on November 16, 2026. Its obsolete review deadline stopped the controlled audit. Current npm audit separately reports GHSA-474x-hrwr-fgx4 in fast-xml-parser 5.11.1.
+  Change: Resolve patched fast-xml-parser 5.12.1 through the existing dependency ranges. Retire the withdrawn advisory exception and its expiration contract. Preserve the local deepmerge patch, provenance, exact installations, and runtime behavior checks. Reject every registry vulnerability and invalid report.
+  Validation: Controlled audit cases cover zero findings, reported findings, malformed counts, registry failures, incorrect provenance, unexpected installations, and altered local code. Regenerate the prepared tree through the canonical preparation command. Final CI and delivery remain pending.
+  Focused result: Canonical preparation, source and prepared audits and behavior checks, audit controls, preparation checks, native configuration checks, and mobile type and app-flow checks passed. The prepared product snapshots retain their prior content; audit and dependency inputs are synchronized.
+  `GOTOOLCHAIN=go1.27.4 make security-audit` passed, including the zero-vulnerability dependency gate.
+
 - [ ] [B171] (P1) Restore delivery through the current managed Pingwin client
   Evidence: The deployed traffic-report test failed. The source notifier called the removed `pinguin.NotificationService`; the current service returned `Unimplemented`.
   Change: Use official client v1.1.12, managed tenant API key authorization, current private-LAN capability, and strict current config. Remove copied protocol bindings and caller-selected tenants. Client construction is lazy; operation deadlines bound sends.

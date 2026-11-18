@@ -13,7 +13,7 @@ let primaryError;
 const active = new Set(/** @type {import('node:child_process').ChildProcess[]} */ ([]));
 const policyText = await readFile(path.join(source, 'config/dependency-audit.json'), 'utf8');
 const policy = JSON.parse(policyText);
-let boundary = 'known';
+let boundary = 'empty';
 let requests = 0;
 const server = createServer(async (request, response) => {
   requests++;
@@ -25,7 +25,7 @@ const server = createServer(async (request, response) => {
     if (boundary === 'empty') return response.end('{}');
     const name = ['unknown', 'critical'].includes(boundary) ? 'expo' : 'deepmerge';
     return response.end(JSON.stringify({ [name]: [{ id: 1243505,
-      url: `https://github.com/advisories/${boundary.startsWith('unknown') ? 'GHSA-xxxx-yyyy-zzzz' : policy.remediations[0].advisory}`,
+      url: `https://github.com/advisories/${boundary.startsWith('unknown') ? 'GHSA-xxxx-yyyy-zzzz' : 'GHSA-gcqx-w48m-w2h4'}`,
       title: 'Controlled dependency advisory', severity: boundary === 'critical' ? 'critical' : 'low',
       vulnerable_versions: '*', cwe: [], cvss: { score: 5.3, vectorString: null },
     }] }));
@@ -71,25 +71,25 @@ try {
     if (name !== 'deepmerge') await symlink(path.join(source, 'node_modules', name), path.join(fixture, 'node_modules', name));
   const merged = path.join(fixture, 'node_modules/deepmerge');
   await cp(path.join(fixture, 'vendor/deepmerge'), merged, { recursive: true });
-  await run('known advisory with real local correction', true, /behavior-qualified/);
+  await run('zero report retains the local correction', true, /zero reported vulnerabilities; 1 behavior-qualified/);
   boundary = 'empty';
-  await run('empty feed still qualifies the local correction', true, /1 behavior-qualified local corrections with absent advisories/);
-  for (const mode of ['unknown', 'unknown-deepmerge', 'critical', 'malformed', 'unavailable']) { boundary = mode; await run(`registry ${mode}`, false); }
+  await run('empty feed still qualifies the local correction', true, /1 behavior-qualified local corrections/);
+  for (const mode of ['known', 'unknown', 'unknown-deepmerge', 'critical', 'malformed', 'unavailable']) { boundary = mode; await run(`registry ${mode}`, false); }
   boundary='known';
   await run('invalid native report counts',false,/invalid vulnerability counts/,'report.metadata.vulnerabilities.total+=1');
-  await run('unrooted transitive cycle',false,/unrooted or cyclic-only/,'for(const [name,other]of[["cycle-a","cycle-b"],["cycle-b","cycle-a"]])report.vulnerabilities[name]={via:[other],nodes:["node_modules/"+name],severity:"low"};report.metadata.vulnerabilities.low+=2;report.metadata.vulnerabilities.total+=2');
-  await run('unqualified advisory node',false,/unremediated advisory/,'report.vulnerabilities.deepmerge.nodes=["node_modules/unqualified/deepmerge"]');
+  await run('unrooted transitive cycle',false,/reported vulnerabilities/,'for(const [name,other]of[["cycle-a","cycle-b"],["cycle-b","cycle-a"]])report.vulnerabilities[name]={via:[other],nodes:["node_modules/"+name],severity:"low"};report.metadata.vulnerabilities.low+=2;report.metadata.vulnerabilities.total+=2');
+  await run('unqualified advisory node',false,/reported vulnerabilities/,'report.vulnerabilities.deepmerge.nodes=["node_modules/unqualified/deepmerge"]');
   const config = path.join(fixture, 'config/dependency-audit.json');
   boundary = 'empty';
   /** @type {[string,(value:any)=>void][]} */
   const mutations = [
-    ['missing correction', value => { value.remediations = []; }],
-    ['wrong package identity', value => { value.remediations[0].package = 'expo'; }],
-    ['expired review', value => { value.review_after = '2000-01-01'; }],
+    ['missing correction', value => { value.local_corrections = []; }],
+    ['wrong package identity', value => { value.local_corrections[0].package = 'expo'; }],
+    ['retired exception date rejected', value => { value.review_after = '2099-01-01'; }],
     ['unknown policy shape', value => { value.extra = true; }],
-    ['missing installation', value => { value.remediations[0].installations = []; }],
-    ['unselected path', value => { value.remediations[0].installations = ['../deepmerge']; }],
-    ['invalid provenance', value => { value.remediations[0].upstream.pull_request = 'invalid'; }],
+    ['missing installation', value => { value.local_corrections[0].installations = []; }],
+    ['unselected path', value => { value.local_corrections[0].installations = ['../deepmerge']; }],
+    ['invalid provenance', value => { value.local_corrections[0].upstream.pull_request = 'invalid'; }],
   ];
   for (const [label, mutate] of mutations) { const value = JSON.parse(policyText); mutate(value); await writeFile(config, JSON.stringify(value)); await run(label, false); }
   await writeFile(config, policyText);
@@ -126,7 +126,7 @@ try {
   const metadataPath = path.join(merged, 'package.json'); const metadata = await readFile(metadataPath, 'utf8');
   await writeFile(metadataPath, JSON.stringify({ ...JSON.parse(metadata), version: '0.0.0' }));
   await run('installed version differs', false, /installed version differs/); await writeFile(metadataPath, metadata);
-  const patchPath = path.join(fixture, policy.remediations[0].patch); const patch = await readFile(patchPath, 'utf8');
+  const patchPath = path.join(fixture, policy.local_corrections[0].patch); const patch = await readFile(patchPath, 'utf8');
   await writeFile(patchPath, patch + '\n'); await run('formatting is not readiness authority', true);
   await rm(patchPath); await run('required correction patch missing', false, /ENOENT/); await writeFile(patchPath, patch);
 } catch(error) {primaryError=error;throw error;} finally {
