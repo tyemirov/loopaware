@@ -157,7 +157,7 @@ export async function goFirstFailure({ repository, owner, invoke, absent, result
   const later = join(root, 'later-case');
   const cleanup = join(root, 'case-cleanup');
   const workerPID = join(root, 'worker-pid');
-  await writeFile(join(root, 'go.mod'), 'module loopaware.local/firstfailure\n\ngo 1.27.3\n');
+  await writeFile(join(root, 'go.mod'), 'module loopaware.local/firstfailure\n\ngo 1.27.4\n');
   await writeFile(join(root, 'first_failure_test.go'), `package firstfailure
 import("os";"strconv";"testing")
 func writeFixture(t *testing.T,path,value string){t.Helper();file,err:=os.Create(path);if err!=nil{t.Fatal(err)};_,writeErr:=file.WriteString(value);closeErr:=file.Close();if writeErr!=nil{t.Fatal(writeErr)};if closeErr!=nil{t.Fatal(closeErr)}}
@@ -169,7 +169,7 @@ func TestLaterMustNotRun(t *testing.T){writeFixture(t,${JSON.stringify(later)},"
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
   const selected = JSON.parse(captured.stdout);
-  assert.equal(selected.GOVERSION, 'go1.27.3');
+  assert.equal(selected.GOVERSION, 'go1.27.4');
   const executable = join(selected.GOROOT, 'bin/go');
   process.stdout.write('LOOPAWARE_GO_SELECTED_TOOLCHAIN ' + JSON.stringify({ version: selected.GOVERSION, executable }) + '\n');
   const args = referenceNative ? ['-C', root, 'test', '-json', './...']
@@ -205,7 +205,7 @@ export async function goResistant({ repository, owner, invoke, absent, results }
   const ignored = join(root, 'helper-ignored-term');
   const worker = join(root, 'worker-ready');
   const cleanup = join(root, 'failed-case-cleanup');
-  await writeFile(join(root, 'go.mod'), 'module loopaware.local/resistant\n\ngo 1.27.3\n');
+  await writeFile(join(root, 'go.mod'), 'module loopaware.local/resistant\n\ngo 1.27.4\n');
   await writeFile(join(root, 'resistant_test.go'), `package resistant
 import("encoding/json";"os";"os/exec";"os/signal";"path/filepath";"runtime";"syscall";"testing")
 func write(t *testing.T,path,value string){t.Helper();file,err:=os.CreateTemp(filepath.Dir(path),"barrier-");if err!=nil{t.Fatal(err)};_,writeErr:=file.WriteString(value);closeErr:=file.Close();if writeErr!=nil{t.Fatal(writeErr)};if closeErr!=nil{t.Fatal(closeErr)};if err:=os.Rename(file.Name(),path);err!=nil{t.Fatal(err)}}
@@ -221,7 +221,7 @@ func TestFirstParallelFailure(t *testing.T){t.Parallel();wait(${JSON.stringify(r
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
   const selected = JSON.parse(captured.stdout);
-  assert.equal(selected.GOVERSION, 'go1.27.3');
+  assert.equal(selected.GOVERSION, 'go1.27.4');
   const result = await invoke(['run', './tools/testmonitor', '--', '-C', root, '-count=1', '-parallel=2', './...'], repository, join(selected.GOROOT, 'bin/go'), env, true);
   assert.notEqual(result.code, 0, result.output);
   assert.match(result.output, /controlled-go-parallel-first-failure/);
@@ -247,7 +247,7 @@ export async function goCleanupError({ repository, owner, invoke, results }) {
   await mkdir(root);
   const cleanup = join(root, 'first-cleanup');
   const pidFile = join(root, 'test-pid');
-  await writeFile(join(root, 'go.mod'), 'module loopaware.local/cleanuperror\n\ngo 1.27.3\n');
+  await writeFile(join(root, 'go.mod'), 'module loopaware.local/cleanuperror\n\ngo 1.27.4\n');
   await writeFile(join(root, 'cleanup_test.go'), `package cleanuperror
 import("os";"strconv";"testing")
 func save(t *testing.T,path,value string){t.Helper();f,err:=os.Create(path);if err!=nil{t.Fatal(err)};if _,err=f.WriteString(value);err!=nil{t.Fatal(err)};if err=f.Close();err!=nil{t.Fatal(err)}}
@@ -271,7 +271,7 @@ os.Exit(code)
   for(const key of ['GOCACHE','GOMODCACHE','GOTOOLCHAIN'])if(process.env[key])env[key]=process.env[key];
   const captured = await invoke(['env','-json','GOROOT','GOVERSION'],repository,'go',env);
   assert.equal(captured.code,0,captured.output);
-  const selected=JSON.parse(captured.stdout);assert.equal(selected.GOVERSION,'go1.27.3');
+  const selected=JSON.parse(captured.stdout);assert.equal(selected.GOVERSION,'go1.27.4');
   const result=await invoke(['run',join(owner,'injected-monitor.go'),'--','-C',root,'-count=1','./...'],repository,join(selected.GOROOT,'bin/go'),env,true);
   process.stdout.write(result.output);
   assert.equal(result.code,1,result.output);
@@ -292,13 +292,13 @@ os.Exit(code)
 export async function goControls({ repository, owner, invoke, absent, results }) {
   const root = join(owner, 'go-controls');
   await mkdir(root);
-  await writeFile(join(root, 'go.mod'), 'module loopaware.local/controls\n\ngo 1.27.3\n');
+  await writeFile(join(root, 'go.mod'), 'module loopaware.local/controls\n\ngo 1.27.4\n');
   const env = { PATH: process.env.PATH, HOME: process.env.HOME, CI: '1', GOWORK: 'off', GOPROXY: 'off', CGO_ENABLED: '0' };
   for (const key of ['GOCACHE', 'GOMODCACHE', 'GOTOOLCHAIN']) if (process.env[key]) env[key] = process.env[key];
   const captured = await invoke(['env', '-json', 'GOROOT', 'GOVERSION'], repository, 'go', env);
   assert.equal(captured.code, 0, captured.output);
   const selected = JSON.parse(captured.stdout);
-  assert.equal(selected.GOVERSION, 'go1.27.3');
+  assert.equal(selected.GOVERSION, 'go1.27.4');
   const executable = join(selected.GOROOT, 'bin/go');
   const file = join(root, 'controls_test.go');
   const success = join(root, 'later-success');
