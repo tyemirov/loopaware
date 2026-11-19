@@ -197,9 +197,15 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
   await app.press("Traffic"); await app.press("7d");
   await app.press("Statistics");
   assert.equal(app.focused(), "header:Statistics");
+  assert.equal(app.homeIcon(), 2);
+  assert.equal(app.buttonText("Dashboard"), "");
   assert.equal(app.statisticsBesideAvatar(), true);
   assert(!app.buttonLabels().some(label => /Back to .*dashboard/.test(label)));
   assert.match(app.text(), /All-sites traffic/);
+  assert.match(app.text(), /Other site 23\s+visits ·\s+5\s+unique/);
+  assert.match(app.text(), /Unique visitors are not collected for daily-count sites/);
+  assert.match(app.text(), /Total unavailable: includes daily-count sites/);
+  assert.match(app.text(), /Aggregate site 12 requests · Daily counts only/);
   assert.doesNotMatch(app.text(), /Selected-site report/);
   assert(app.requestURLs.some(url => new URL(url).searchParams.get("scope") === "visible"));
   assert(!app.requests.includes("/api/reports/traffic/portfolio/reports"));
@@ -864,7 +870,7 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 /**
  * @param {string} name
  * @param {{ initialSession: boolean, fontScale?: number, locations?: import("../src/types").LocationPoint[], uniqueTraffic?: boolean, invalidLocationMetadata?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
- * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapGeometry: () => {width:number|string,aspectRatio:number,centered:boolean}, mapMarkerSizes: () => number[], layoutMap: (width:number) => Promise<void>, failLocationMap: () => Promise<void>, locationMap: () => {uri:string,svg:string,label:string,aspectRatio:number}|null, statisticsBesideAvatar: () => boolean, synchronizeStatistics: () => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, trend: () => string[][], graph: () => {yLabel:string, topMargin:number, plotHeight:number, dateMargin:number, segments: import("react-test-renderer").ReactTestInstance[], points: import("react-test-renderer").ReactTestInstance[]}, layoutGraph: (width:number) => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
+ * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapGeometry: () => {width:number|string,aspectRatio:number,centered:boolean}, mapMarkerSizes: () => number[], layoutMap: (width:number) => Promise<void>, failLocationMap: () => Promise<void>, locationMap: () => {uri:string,svg:string,label:string,aspectRatio:number}|null, homeIcon: () => number | undefined, statisticsBesideAvatar: () => boolean, synchronizeStatistics: () => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, trend: () => string[][], graph: () => {yLabel:string, topMargin:number, plotHeight:number, dateMargin:number, segments: import("react-test-renderer").ReactTestInstance[], points: import("react-test-renderer").ReactTestInstance[]}, layoutGraph: (width:number) => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
   let authenticated = options.initialSession;
@@ -978,7 +984,7 @@ async function scenario(name, options, check) {
         status = options.portfolioFailure ? 500 : 200;
         payload = options.portfolioFailure ? { error: "query_failed" } : { scope: "visible", site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: options.emptySites ? [] : [
           {site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:null},
-          {site_id:"other-site",site_name:"Other site",visit_count:23,unique_visitor_count:null},
+          {site_id:"other-site",site_name:"Other site",visit_count:23,unique_visitor_count:5},
         ] }; break;
       case "/api/reports/traffic/portfolio/schedule": payload = null; break;
       default:
@@ -1099,6 +1105,7 @@ async function scenario(name, options, check) {
       statusBarStyle() { return tree().root.findAll(node => String(node.type) === "StatusBar")[0].props.style; },
       buttonText(label) { const button = findButton(label); assert(button); return textContent(button.findAll(node => String(node.type) === "Text").map(node => node.props.children)); },
       async back() { await act(async () => { const modal=tree().root.findAll(node => String(node.type) === "Modal" && node.props.visible)[0]; if (modal) modal.props.onRequestClose(); else for (const callback of device.back) callback(); }); await settle(); },
+      homeIcon() { return findButton("Dashboard")?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.source; },
       siteIcon(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.source?.uri ?? null; },
       siteIconDecorative(label) { return findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]?.props.accessible === false; },
       async siteIconError(label) { await waitFor(() => Boolean(findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0])); const icon = findButton(label)?.findAll(node => String(node.type) === "FaviconImage")[0]; assert(icon); await act(async () => icon.props.onError()); await settle(); },
@@ -1251,6 +1258,7 @@ function loadApp(origin, fetcher, prompt, device) {
   /** @type {Record<string, unknown>} */
   const mocks = {
     "./assets/icon.png": 1,
+    "./assets/bootstrap-house.svg": 2,
     "react-native": { ...Object.fromEntries(nativeComponents.map(name => [name, name])), Platform: { OS: device.platform }, useWindowDimensions: () => ({ width: 375, height: 667, scale: 2, fontScale: device.fontScale }), Keyboard: {dismiss(){device.keyboardDismissals++;}},
       AccessibilityInfo: { setAccessibilityFocus: (/** @type {number} */ tag) => { const label=device.tags.get(tag); assert(label); device.focused.push(label); } },
       findNodeHandle: (/** @type {{tag:number}|null} */ node) => node?.tag ?? null,
