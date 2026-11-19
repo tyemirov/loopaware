@@ -38,6 +38,12 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B176] (P1) Restore anonymous pulls of the Pingwin integration image
+  Evidence: PR #440 run `44591868868`, Integration 1/3 job `135799709915`, failed before tests when GHCR rejected the private Pingwin image pull as unauthorized. Matrix fail-fast cancelled the other jobs; the aggregate test gate then failed.
+  Resolution: Changed Pingwin package visibility to public with the user's explicit approval. Documented public integration-image visibility as the anonymous-pull prerequisite. The CI workflow retains anonymous pulls.
+  Validation: `make github-workflow-check` passed all 20 cases. GitHub's package API confirms public visibility. `docker --config <empty-config> manifest inspect ghcr.io/tyemirov/pingwin:latest` returned the image index anonymously, advertising amd64 and arm64 images. Independent architect review approved the correction. The PR workflow supplies the final delivery gate.
+  Files: `docs/development.md`.
+
 - [x] [B174] (P1) Use a standard home icon for mobile dashboard navigation
   Resolution: Replaced the font-dependent glyph with the official MIT-licensed Bootstrap Icons v1.13.1 house SVG, bundled locally with themed tint and the existing accessible Dashboard button.
   Validation: Regression failed before the fix; iOS and Android app-flow checks and Chromium light/dark SVG rendering passed. Final `make ci` passed, including all 484 browser/API integration scenarios.

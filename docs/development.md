@@ -23,6 +23,9 @@ The integration suite exercises public APIs and browser behavior.
 
 `make test` runs the Playwright integration suite against `tests/docker-compose.yml`, with test-owned env fixtures under
 `tests/configs/`. That stack builds the API image, serves `web/` via gHTTP, and exercises both UI and `/api/*` flows.
+The integration stack pulls public TAuth, Pingwin, and gHTTP images from GHCR without registry credentials.
+Keep `ghcr.io/tyemirov/pingwin` public so clean runners can pull it anonymously.
+
 Use `make test-resource-theme` to verify theme storage on a resource page through the browser.
 This target installs the locked test dependencies when `tests/node_modules` is absent.
 
