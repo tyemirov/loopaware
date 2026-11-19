@@ -418,7 +418,7 @@ function Header(props: { account: Account; apiClient: LoopAwareApiClient; onSett
       <Pressable accessibilityRole="button" accessibilityLabel={props.screen === "statistics" ? "Dashboard" : "Statistics"}
         accessibilityHint={props.screen === "statistics" ? "View the selected site dashboard" : "View reports across all accessible sites"}
         style={styles.statisticsButton} onPress={props.onStatistics}>
-        {props.screen === "statistics" ? <Text style={{ fontSize: 30, color: colors.tealDark }} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">⌂</Text> :
+        {props.screen === "statistics" ? <FaviconImage source={require("./assets/bootstrap-house.svg")} style={{ width: 26, height: 26 }} tintColor={colors.tealDark} contentFit="contain" accessible={false} /> :
           <View style={styles.statisticsIcon} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             {[10, 22, 16].map((height, index) => <View key={index} style={[styles.statisticsBar, { height }]} />)}
           </View>}
@@ -1025,15 +1025,16 @@ function StatisticsScreen(props: { apiClient: LoopAwareApiClient; header: React.
         <StatGrid items={[
           { label: "Sites", value: formatCount(report.site_count), detail: "Included" },
           { label: "Visits", value: formatCount(report.visit_count), detail: "Last 30 days" },
-          { label: "Visitors", value: formatCount(report.unique_visitor_count), detail: "Unique" },
+          { label: "Visitors", value: report.unique_visitor_count === null ? "Not collected for all sites" : formatCount(report.unique_visitor_count), detail: report.unique_visitor_count === null ? "Total unavailable: includes daily-count sites" : "Unique" },
         ]} />
+        {report.unique_visitor_count === null ? <Text style={styles.helperText}>Unique visitors are not collected for daily-count sites. Detailed sites show their own counts below.</Text> : null}
         {report.sites.length ? report.sites.map(site => <Pressable key={site.site_id}
           accessibilityRole="button" accessibilityLabel={`Open site ${site.site_name}`}
           accessibilityHint="Open this site's overview" disabled={openingSite !== null}
           accessibilityState={{ disabled: openingSite !== null, busy: openingSite === site.site_id }}
           style={styles.reportSite} onPress={() => void openSite(site.site_id)}>
           <Text style={styles.listItemTitle}>{site.site_name}</Text>
-          <Text style={styles.listItemMeta}>{formatCount(site.visit_count)} visits · {formatCount(site.unique_visitor_count)} unique</Text>
+          <Text style={styles.listItemMeta}>{site.unique_visitor_count === null ? `${formatCount(site.visit_count)} requests · Daily counts only` : `${formatCount(site.visit_count)} visits · ${formatCount(site.unique_visitor_count)} unique`}</Text>
           {openingSite === site.site_id ? <InlineLoading /> : null}
         </Pressable>) : <EmptyInline text="No accessible sites." />}
       </> : !loading ? <EmptyInline text="All-sites report data unavailable." /> : null}

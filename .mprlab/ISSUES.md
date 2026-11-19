@@ -38,6 +38,22 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B176] (P1) Restore anonymous pulls of the Pingwin integration image
+  Evidence: PR #440 run `44591868868`, Integration 1/3 job `135799709915`, failed before tests when GHCR rejected the private Pingwin image pull as unauthorized. Matrix fail-fast cancelled the other jobs; the aggregate test gate then failed.
+  Resolution: Changed Pingwin package visibility to public with the user's explicit approval. Documented public integration-image visibility as the anonymous-pull prerequisite. The CI workflow retains anonymous pulls.
+  Validation: `make github-workflow-check` passed all 20 cases. GitHub's package API confirms public visibility. `docker --config <empty-config> manifest inspect ghcr.io/tyemirov/pingwin:latest` returned the image index anonymously, advertising amd64 and arm64 images. Independent architect review approved the correction. The PR workflow supplies the final delivery gate.
+  Files: `docs/development.md`.
+
+- [x] [B174] (P1) Use a standard home icon for mobile dashboard navigation
+  Resolution: Replaced the font-dependent glyph with the official MIT-licensed Bootstrap Icons v1.13.1 house SVG, bundled locally with themed tint and the existing accessible Dashboard button.
+  Validation: Regression failed before the fix; iOS and Android app-flow checks and Chromium light/dark SVG rendering passed. Final `make ci` passed, including all 484 browser/API integration scenarios.
+  Files: `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `mobile/assets/bootstrap-house.svg`, `mobile/assets/bootstrap-icons-LICENSE.txt`.
+
+- [x] [B175] (P1) Preserve detailed visitor counts in mixed traffic reports
+  Resolution: Mixed reports preserve detailed per-site unique counts, use one UTC window, and query each traffic profile from its own storage. Combined totals and daily-count visitor metrics remain null. Mobile Statistics explains the limitation and labels daily-count rows as requests.
+  Validation: Public HTTP regression reproduced the null detailed count. Tests cover repeated visitors across days, empty identifiers, bots, empty sites, and one-day boundary consistency. Independent architect review approved the change; `make test-unit`, `make mobile-check`, and final `make ci` passed, including all 484 browser/API integration scenarios.
+  Files: `internal/api/aggregate_portfolio.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/aggregate_reports_test.go`, `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `docs/api.md`, `docs/dashboard.md`.
+
 - [x] [B173] (P1) Select the installed Gateway runtime in deployment policy tests
   Evidence: The fixture treated a command name as a local path and derived runtime assets from launcher ancestry. The installed launcher selects a sealed runtime with a separate executable and assets.
   Change: Resolve the configured command through PATH. Capture structured arguments and the selected Ansible config and physical executable at the real controller child boundary. Keep that runtime identity throughout the policy fixtures without contacting providers.

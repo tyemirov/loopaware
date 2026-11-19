@@ -890,11 +890,14 @@ func portfolioSiteRows(ctx context.Context, database *gorm.DB, sites []model.Sit
 		report, err := buildAggregatePortfolio(ctx, database, sites, days)
 		return report.Sites, err
 	}
+	return detailedPortfolioSiteRows(ctx, database, sites, visitWindowStartTime(days))
+}
+
+func detailedPortfolioSiteRows(ctx context.Context, database *gorm.DB, sites []model.Site, startTime time.Time) ([]PortfolioTrafficSiteRecord, error) {
 	if len(sites) == 0 {
 		return nil, nil
 	}
 	siteIDs := portfolioSiteIDs(sites)
-	startTime := visitWindowStartTime(days)
 	var rows []portfolioSiteCountRow
 	err := database.WithContext(ctx).
 		Model(&model.SiteVisit{}).

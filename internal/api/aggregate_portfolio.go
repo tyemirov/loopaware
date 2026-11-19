@@ -21,15 +21,27 @@ func hasAggregateSite(sites []model.Site) bool {
 
 func buildAggregatePortfolio(ctx context.Context, database *gorm.DB, sites []model.Site, days int) (portfolioTrafficReportData, error) {
 	start := time.Now().UTC().Truncate(24*time.Hour).AddDate(0, 0, -(days - 1))
-	identifiers := portfolioSiteIDs(sites)
+	detailedSites := make([]model.Site, 0, len(sites))
+	aggregateIDs := make([]string, 0, len(sites))
+	for _, site := range sites {
+		if site.TrafficProfile == model.TrafficProfileAggregate {
+			aggregateIDs = append(aggregateIDs, site.ID)
+		} else {
+			detailedSites = append(detailedSites, site)
+		}
+	}
+	detailedRows, err := detailedPortfolioSiteRows(ctx, database, detailedSites, start)
+	if err != nil {
+		return portfolioTrafficReportData{}, err
+	}
 	var rows []struct {
 		SiteID, Day string
 		Count       int64
 	}
-	err := database.WithContext(ctx).Raw(`SELECT site_id, DATE(occurred_at) AS day, COUNT(*) AS count
+	err = database.WithContext(ctx).Raw(`SELECT site_id, DATE(occurred_at) AS day, COUNT(*) AS count
 		FROM site_visits WHERE site_id IN ? AND occurred_at >= ? AND is_bot = false GROUP BY site_id, DATE(occurred_at)
 		UNION ALL SELECT site_id, date AS day, count FROM site_visit_counts WHERE site_id IN ? AND date >= ?`,
-		identifiers, start, identifiers, start.Format(visitTrendDateFormat)).Scan(&rows).Error
+		portfolioSiteIDs(detailedSites), start, aggregateIDs, start.Format(visitTrendDateFormat)).Scan(&rows).Error
 	if err != nil {
 		return portfolioTrafficReportData{}, err
 	}
@@ -45,8 +57,11 @@ func buildAggregatePortfolio(ctx context.Context, database *gorm.DB, sites []mod
 		date := start.AddDate(0, 0, index).Format(visitTrendDateFormat)
 		report.Trend = append(report.Trend, VisitTrendPoint{Date: date, PageViews: byDate[date]})
 	}
+	report.Sites = append(report.Sites, detailedRows...)
 	for _, site := range sites {
-		report.Sites = append(report.Sites, PortfolioTrafficSiteRecord{SiteID: site.ID, SiteName: site.Name, VisitCount: bySite[site.ID], CountsOnly: true})
+		if site.TrafficProfile == model.TrafficProfileAggregate {
+			report.Sites = append(report.Sites, PortfolioTrafficSiteRecord{SiteID: site.ID, SiteName: site.Name, VisitCount: bySite[site.ID], CountsOnly: true})
+		}
 	}
 	sort.Slice(report.Sites, func(left, right int) bool {
 		if report.Sites[left].VisitCount == report.Sites[right].VisitCount {
