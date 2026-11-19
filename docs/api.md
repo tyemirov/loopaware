@@ -76,6 +76,11 @@ For aggregate sites, it reports all retained accepted-request counts.
 | `PUT` | `/api/reports/traffic/portfolio/schedule` | authenticated | Update the selected portfolio report's email schedule. |
 | `POST` | `/api/reports/traffic/portfolio/schedule/test` | authenticated | Send the selected portfolio report immediately. |
 
+In mixed reports, detailed site rows retain numeric `unique_visitor_count` values and `counts_only: false`.
+Daily-count rows use `counts_only: true` and `unique_visitor_count: null`.
+The combined report and trend retain null visitor counts when any daily-count site is included.
+Mixed reports use the same UTC calendar-day boundary for totals, trend, and site rows.
+
 The default scope is `owned`.
 Report definitions and email schedules use owner and creator rules.
 The `visible` scope uses the same access rules as `GET /api/sites`.

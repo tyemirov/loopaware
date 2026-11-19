@@ -72,7 +72,10 @@ Global administrators see all sites.
 Statistics remains available when the selected site has no dashboard data.
 
 Select a site row to open that site's overview. The traffic interval remains selected.
-Select the dashboard icon left of the avatar to open the previous site and tab.
+Select the Bootstrap house icon left of the avatar to open the previous site and tab.
+Daily-count sites show accepted requests and do not collect visitor identifiers.
+Detailed sites retain their own unique visitor counts in mixed reports.
+A combined unique visitor total is unavailable when the report includes a daily-count site.
 Statistics loads current data on entry and when the app returns from the background.
 
 While open, it updates every 30 seconds and recovers automatically after request failures.
