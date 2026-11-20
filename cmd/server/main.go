@@ -213,6 +213,11 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if migrateErr := storage.AutoMigrate(database); migrateErr != nil {
 		logger.Fatal(loggerContextAutoMigrate, zap.Error(migrateErr))
 	}
+	reclassifiedVisits, migrationErr := storage.MigrateBrowserAuditVisits(database)
+	if migrationErr != nil {
+		return migrationErr
+	}
+	logger.Info("browser_audit_visits_migrated", zap.Int64("reclassified_visits", reclassifiedVisits))
 
 	stopVisitRetention, retentionErr := startVisitCountRetention(database, logger, serverConfig.AggregateRetentionDays, time.Now)
 	if retentionErr != nil {
@@ -250,7 +255,7 @@ func (application *ServerApplication) runCommand(command *cobra.Command, argumen
 	if serverConfig.TrafficReportEmails {
 		trafficReportEmailSender = pinguinNotifier
 	}
-	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier)
+	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, pinguinNotifier, subscriptionNotifier, serverConfig.SubscriptionNotifications, serverConfig.PublicBaseURL, serverConfig.SessionSecret, pinguinNotifier, api.VisitCollectionPolicy{ExcludePrivateIPs: serverConfig.ExcludePrivateVisitIPs})
 	faviconResolver := favicon.NewHTTPResolver(sharedHTTPClient, logger)
 	faviconService := favicon.NewService(faviconResolver)
 	faviconManager := api.NewSiteFaviconManager(database, faviconService, logger)

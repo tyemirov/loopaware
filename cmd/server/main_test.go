@@ -82,6 +82,7 @@ func validServerConfigYAML(pinguinAddress string) string {
 	return strings.Join([]string{
 		"analytics:",
 		"  aggregate_retention_days: 90",
+		"  exclude_private_ips: false",
 		"server:",
 		"  address: \"127.0.0.1:0\"",
 		"  public_base_url: \"" + testPublicBaseURLValue + "\"",
