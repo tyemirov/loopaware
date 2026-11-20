@@ -3995,6 +3995,18 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I063] Fill the desktop Sites panel between the header and footer.
+  Keep equal header and footer margins, scroll the list inside the panel, and adapt to viewport and shell size changes. Preserve the stacked layout on narrow screens.
+  Implemented a sticky desktop panel sized from the viewport and measured header/footer heights. Kept complete selected rows visible at fractional scroll boundaries after architect review.
+  Validation: The browser regression failed before implementation. All 56 focused dashboard scenarios pass, including shell resizing, search, list scrolling, creation, deletion, and narrow screens. `make lint-js` and screenshot review pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `web/app/index.html`, `tests/specs/dashboard-layout.spec.js`, `tests/package.json`, `docs/dashboard.md`.
+
+- [x] [I064] Show report request trends on a graph with labeled axes.
+  Replace the daily-count and mixed-profile report bars with the shared chronological graph. Label dates in UTC and the recorded-request scale. Explain the daily-count unique-visitor state.
+  The shared graph now plots every date, spaces sparse dates by elapsed UTC time, and shows markers with exact date/count descriptions. Daily-count and mixed reports plot requests; detailed reports retain visits and unique visitors. Daily-count table cells show `Not collected (daily counts)`.
+  Validation: The missing-graph browser regression failed before implementation. All 56 focused dashboard scenarios pass, covering aggregate and mixed reports, zero counts, a single day, sparse dates, and existing detailed graphs. `make lint-js` and graph screenshot review pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `web/app/index.html`, `tests/specs/dashboard-report-trend.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `tests/package.json`, `docs/dashboard.md`.
+
 - [x] [I062] (P1) Exclude genuine internal clients from detailed traffic.
   Resolve the client address through the trusted proxy boundary once. Exclude private, loopback, link-local, unspecified, and multicast addresses when analytics.exclude_private_ips is true.
   Require the explicit setting, enable it in the production config, and allow intentional private traffic in the isolated integration config. Preserve pixel response, origin/input validation, and aggregate daily-count semantics.
