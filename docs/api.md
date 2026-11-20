@@ -76,10 +76,15 @@ For aggregate sites, it reports all retained accepted-request counts.
 | `PUT` | `/api/reports/traffic/portfolio/schedule` | authenticated | Update the selected portfolio report's email schedule. |
 | `POST` | `/api/reports/traffic/portfolio/schedule/test` | authenticated | Send the selected portfolio report immediately. |
 
-In mixed reports, detailed site rows retain numeric `unique_visitor_count` values and `counts_only: false`.
-Daily-count rows use `counts_only: true` and `unique_visitor_count: null`.
-The combined report and trend retain null visitor counts when any daily-count site is included.
-Mixed reports use the same UTC calendar-day boundary for totals, trend, and site rows.
+Portfolio totals, trend points, site rows, and report-library `available_sites` use numeric recorded visitor counts.
+Detailed site rows use `counts_only: false`. Daily-count rows use `counts_only: true` and contribute zero unique visitors.
+The report's `visit_count` combines detailed page views and accepted daily-count requests.
+Its `unique_visitor_count` sums each detailed site's distinct nonempty visitor identifiers over the full report window.
+Each trend point sums the per-site distinct identifiers for that UTC date; adding daily unique counts can exceed the full-window total.
+Repeat visits and visits without an identifier still contribute to visit counts. Detailed records flagged as bots contribute to neither metric.
+For reports containing daily-count sites, `counts_only: true` describes collection metadata and `time_resolution: "utc_day"` describes the time buckets.
+These reports use the same UTC calendar-day boundary for totals, trend, and site rows, including `days=1`.
+Individual aggregate-site collection representations retain their uncollected visitor metrics; the zero contribution applies to portfolio arithmetic.
 
 The default scope is `owned`.
 Report definitions and email schedules use owner and creator rules.

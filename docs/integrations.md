@@ -176,8 +176,13 @@ Invalid fields or query data return `400`. A disallowed origin returns `403`.
 
 The database stores only the site ID, UTC date, and accepted request count.
 Reports cannot determine unique visitors, individual visits, pages, devices, or locations for aggregate sites.
-These metrics are unavailable in the API and dashboards.
-A mixed portfolio reports totals by UTC calendar day and marks visitor metrics unavailable.
+Individual-site analytics endpoints mark these uncollected metrics as unavailable.
+Portfolio reports combine detailed page views with accepted daily-count requests and sum recorded unique visitors from detailed sites.
+Daily-count sites contribute zero unique visitors to portfolio totals, daily trends, and site rows.
+This zero is a reporting contribution, rather than a measurement of the site's actual visitors.
+The full-window unique total counts each recorded identifier once per detailed site. Daily trend points count each identifier once per site and UTC date.
+Mixed reports retain UTC calendar-day boundaries and the `utc_day` time-resolution metadata.
+Portfolio emails use the same numeric counts; individual aggregate-site emails retain the unavailable visitor status.
 
 `analytics.aggregate_retention_days` specifies the retention window, from 1 to 90 calendar days.
 The canonical configuration uses 90 days, including the current UTC date.

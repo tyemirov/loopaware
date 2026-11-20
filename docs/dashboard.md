@@ -15,7 +15,7 @@ The Bootstrap frontend consumes the [HTTP API](api.md). Features include:
 - Widget appearance controls that persist the bubble’s accent color, side (left/right), and bottom offset without code changes
 - Feedback table with human-readable timestamps
 - Subscribers panel with per-site subscriber counts, table, spreadsheet-formula-safe CSV export, and a copyable `subscribe.js` snippet
-- Section selector tabs to switch between Feedback, Subscriptions, Traffic, Health, LA Sentry, and manager-only Admin tools
+- Section selector tabs ordered as Traffic, Feedback, Subscriptions, Health, LA Sentry, and manager-only Admin tools
 - Subscriber deletion via a confirmation modal
 - Traffic card with visit and unique visitor counts, recent visits, and a copyable `pixel.js` snippet
 - Real-time favicon refresh notifications delivered through the SSE stream
@@ -30,6 +30,8 @@ The dashboard automatically redirects unauthenticated visitors to `/login`.
 On desktop, the Sites panel fills the visible space between the header and footer with equal margins.
 The site list scrolls inside the panel, which stays visible while the selected site's content scrolls.
 On narrow screens, Sites appears above the site details.
+Traffic is selected when the dashboard opens and when a different site opens.
+An explicit tab choice remains selected during background updates and when returning from Reports to the same site.
 
 ## Mobile site cards
 
@@ -68,10 +70,13 @@ The automatic schedule write completes before the dashboard opens.
 The report library keeps custom reports and email schedules.
 The header icon provides navigation between the dashboard and reports.
 
-The preview plots the full daily trend with labeled Date (UTC) and count axes.
-Reports that include daily-count sites show recorded requests without a unique-visitor series.
-Their site rows show `Not collected (daily counts)` for unique visitors because this profile stores no visitor identifiers.
-Detailed sites retain their recorded unique visitor counts in the same table.
+The preview plots the full daily trend with Date (UTC) and count axes and a Visits/Unique legend.
+Visits combines detailed page views and daily request counts. Unique sums the recorded unique visitor counts for the selected sites.
+Daily-count sites contribute zero unique visitors to report totals, daily trends, and site rows because they store no visitor identifiers.
+The whole-window total counts a recorded visitor once per site, including when that visitor appears on multiple dates.
+
+Hover over the plot or tap it to show the nearest UTC date and exact counts.
+Focus the graph and use the arrow keys to move between dates. Home and End select the first and last dates; Escape hides the values.
 
 ## Mobile statistics
 
@@ -86,8 +91,8 @@ Daily-count sites show accepted requests and do not collect visitor identifiers.
 Detailed sites retain their own unique visitor counts in mixed reports.
 The Visitors tile shows recorded unique visitors summed across the sites that collect visitor identifiers.
 Sites with no traffic show zero. Daily-count sites contribute their request counts.
-The API represents a complete visitor total as null when the report includes a daily-count site.
-Statistics derives its recorded visitor subtotal from the detailed site rows in that report.
+The API supplies the numeric recorded visitor total, with daily-count sites contributing zero.
+Statistics displays this total and numeric per-site counts directly.
 Statistics loads current data on entry and when the app returns from the background.
 
 While open, it updates every 30 seconds and recovers automatically after request failures.
