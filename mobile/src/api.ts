@@ -237,12 +237,11 @@ export class LoopAwareApiClient {
       throw new LoopAwareApiError(502, "mobile_api_invalid_report", "Read visible traffic report: expected the visible scope.");
     }
     const report = payload as Record<string, unknown>;
-    const readVisitors = (value: unknown) => value === null ? null : readTrafficCount(value, "visible traffic report unique visitors");
     return {
       scope: "visible",
       site_count: readTrafficCount(report.site_count, "visible traffic report sites"),
       visit_count: readTrafficCount(report.visit_count, "visible traffic report visits"),
-      unique_visitor_count: readVisitors(report.unique_visitor_count),
+      unique_visitor_count: readTrafficCount(report.unique_visitor_count, "visible traffic report unique visitors"),
       sites: readCollection<unknown>(report, "sites").map(value => {
         if (typeof value !== "object" || value === null) {
           throw new LoopAwareApiError(502, "mobile_api_invalid_report", "Read visible traffic report: expected a site row.");
@@ -255,7 +254,7 @@ export class LoopAwareApiClient {
           site_id: site.site_id,
           site_name: site.site_name,
           visit_count: readTrafficCount(site.visit_count, "visible traffic report site visits"),
-          unique_visitor_count: readVisitors(site.unique_visitor_count),
+          unique_visitor_count: readTrafficCount(site.unique_visitor_count, "visible traffic report site unique visitors"),
         };
       }),
     };

@@ -1081,7 +1081,7 @@ function StatisticsScreen(props: { apiClient: LoopAwareApiClient; header: React.
           { label: "Visits", value: formatCount(report.visit_count), detail: "Last 30 days" },
           {
             label: "Visitors",
-            value: formatCount(report.unique_visitor_count ?? report.sites.reduce((total, site) => total + (site.unique_visitor_count ?? 0), 0)),
+            value: formatCount(report.unique_visitor_count),
             detail: "Recorded unique",
           },
         ]} />
@@ -1091,7 +1091,7 @@ function StatisticsScreen(props: { apiClient: LoopAwareApiClient; header: React.
           accessibilityState={{ disabled: openingSite !== null, busy: openingSite === site.site_id }}
           style={styles.reportSite} onPress={() => void openSite(site.site_id)}>
           <Text style={styles.listItemTitle}>{site.site_name}</Text>
-          <Text style={styles.listItemMeta}>{site.unique_visitor_count === null ? `${formatCount(site.visit_count)} requests · Daily counts only` : `${formatCount(site.visit_count)} visits · ${formatCount(site.unique_visitor_count)} unique`}</Text>
+          <Text style={styles.listItemMeta}>{`${formatCount(site.visit_count)} visits · ${formatCount(site.unique_visitor_count)} unique`}</Text>
           {openingSite === site.site_id ? <InlineLoading /> : null}
         </Pressable>) : <EmptyInline text="No accessible sites." />}
       </> : !loading ? <EmptyInline text="All-sites report data unavailable." /> : null}

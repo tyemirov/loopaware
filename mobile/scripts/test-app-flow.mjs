@@ -233,7 +233,7 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
   assert.match(app.text(), /Other site 23\s+visits ·\s+5\s+unique/);
   assert.match(app.text(), /Visitors 5 Recorded unique/);
   assert.doesNotMatch(app.text(), /Not collected|Total unavailable|Unique visitors are not collected/);
-  assert.match(app.text(), /Aggregate site 12 requests · Daily counts only/);
+  assert.match(app.text(), /Aggregate site 12 visits · 0 unique/);
   assert.doesNotMatch(app.text(), /Selected-site report/);
   assert(app.requestURLs.some(url => new URL(url).searchParams.get("scope") === "visible"));
   assert(!app.requests.includes("/api/reports/traffic/portfolio/reports"));
@@ -250,18 +250,18 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
 
 /** @type {import("../src/types").PortfolioTrafficSite[]} */
 const recordedStatisticsSites = [
-  { site_id: "aggregate-site", site_name: "Daily requests", visit_count: 12, unique_visitor_count: null },
+  { site_id: "aggregate-site", site_name: "Daily requests", visit_count: 12, unique_visitor_count: 0 },
   { site_id: "other-site", site_name: "Detailed traffic", visit_count: 23, unique_visitor_count: 5 },
   { site_id: "third-site", site_name: "More traffic", visit_count: 8, unique_visitor_count: 3 },
   { site_id: "empty-detailed", site_name: "Empty detailed", visit_count: 0, unique_visitor_count: 0 },
-  { site_id: "empty-daily", site_name: "Empty daily", visit_count: 0, unique_visitor_count: null },
+  { site_id: "empty-daily", site_name: "Empty daily", visit_count: 0, unique_visitor_count: 0 },
 ];
 /** @type {Array<[string, import("../src/types").VisibleTrafficReport, number]>} */
 const recordedStatisticsReports = [
-  ["mixed", { scope: "visible", site_count: 5, visit_count: 43, unique_visitor_count: null, sites: recordedStatisticsSites }, 8],
-  ["detailed", { scope: "visible", site_count: 3, visit_count: 31, unique_visitor_count: 8, sites: recordedStatisticsSites.filter(site => site.unique_visitor_count !== null) }, 8],
-  ["daily", { scope: "visible", site_count: 2, visit_count: 12, unique_visitor_count: null, sites: recordedStatisticsSites.filter(site => site.unique_visitor_count === null) }, 0],
-  ["zero traffic", { scope: "visible", site_count: 2, visit_count: 0, unique_visitor_count: null, sites: recordedStatisticsSites.filter(site => site.visit_count === 0) }, 0],
+  ["mixed", { scope: "visible", site_count: 5, visit_count: 43, unique_visitor_count: 8, sites: recordedStatisticsSites }, 8],
+  ["detailed", { scope: "visible", site_count: 3, visit_count: 31, unique_visitor_count: 8, sites: recordedStatisticsSites.filter(site => ["other-site", "third-site", "empty-detailed"].includes(site.site_id)) }, 8],
+  ["daily", { scope: "visible", site_count: 2, visit_count: 12, unique_visitor_count: 0, sites: recordedStatisticsSites.filter(site => ["aggregate-site", "empty-daily"].includes(site.site_id)) }, 0],
+  ["zero traffic", { scope: "visible", site_count: 2, visit_count: 0, unique_visitor_count: 0, sites: recordedStatisticsSites.filter(site => site.visit_count === 0) }, 0],
   ["no sites", { scope: "visible", site_count: 0, visit_count: 0, unique_visitor_count: 0, sites: [] }, 0],
 ];
 for (const platform of /** @type {const} */ (["ios", "android"])) {
@@ -272,9 +272,7 @@ for (const platform of /** @type {const} */ (["ios", "android"])) {
     assert.match(app.text(), new RegExp(`Sites ${report.site_count} Included Visits ${report.visit_count} Last 30 days Visitors ${visitors} Recorded unique`));
     assert.doesNotMatch(app.text(), /Unavailable|Not collected|Total unavailable|Unique visitors are not collected/);
     for (const row of report.sites) {
-      const expected = row.unique_visitor_count === null
-        ? `${row.site_name} ${row.visit_count} requests · Daily counts only`
-        : `${row.site_name} ${row.visit_count} visits · ${row.unique_visitor_count} unique`;
+      const expected = `${row.site_name} ${row.visit_count} visits · ${row.unique_visitor_count} unique`;
       assert(app.buttonText(`Open site ${row.site_name}`).includes(expected));
     }
     if (report.sites.length === 0) assert.match(app.text(), /No accessible sites/);
@@ -287,6 +285,7 @@ await scenario("statistics updates the collected visitor total with the site row
   updatingStatistics.portfolioReport = {
     ...updatingStatistics.portfolioReport,
     visit_count: 45,
+    unique_visitor_count: 9,
     sites: recordedStatisticsSites.map(site => site.site_id === "empty-detailed" ? { ...site, visit_count: 2, unique_visitor_count: 1 } : site),
   };
   await app.synchronizeStatistics();
@@ -1057,8 +1056,8 @@ async function scenario(name, options, check) {
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
       case "/api/reports/traffic/portfolio":
         status = options.portfolioFailure ? 500 : 200;
-        payload = options.portfolioFailure ? { error: "query_failed" } : options.portfolioReport ?? { scope: "visible", site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: options.emptySites ? [] : [
-          {site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:null},
+        payload = options.portfolioFailure ? { error: "query_failed" } : options.portfolioReport ?? { scope: "visible", site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: 5, trend: [], sites: options.emptySites ? [] : [
+          {site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:0},
           {site_id:"other-site",site_name:"Other site",visit_count:23,unique_visitor_count:5},
         ] }; break;
       case "/api/reports/traffic/portfolio/schedule": payload = null; break;
