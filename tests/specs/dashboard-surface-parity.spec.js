@@ -166,7 +166,7 @@ for (const writeState of ['pending', 'in-flight', 'failed']) {
       await dashboard.click();
     }
     await expect(page.locator('#site-dashboard-view')).toBeVisible();
-    await expect(page.locator('#dashboard-section-tab-feedback')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#dashboard-section-tab-traffic')).toHaveAttribute('aria-selected', 'true');
     await expect.poll(async () => {
       const schedule = await fetchPortfolioTrafficReportSchedule(config, cookie);
       return { send_hour: schedule.send_hour, send_minute: schedule.send_minute, timezone: schedule.timezone };

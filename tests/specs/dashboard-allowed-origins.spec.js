@@ -52,6 +52,10 @@ async function resetAllowedOrigins() {
 async function openSite(page, section) {
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
+  if (section === 'widget') {
+    await page.locator('#dashboard-section-tab-feedback').click();
+    await expect(page.locator('#widget-allowed-origins-list')).toBeVisible();
+  }
   if (section === 'subscribe') {
     await page.locator('#dashboard-section-tab-subscriptions').click();
     await expect(page.locator('#subscribe-allowed-origins-list')).toBeVisible();

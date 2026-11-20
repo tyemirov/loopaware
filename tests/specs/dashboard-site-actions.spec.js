@@ -228,6 +228,7 @@ test('assigned team member sees site details as read-only', async ({ page }) => 
   await expect(page.locator('#edit-site-owner')).toBeDisabled();
   await expect(page.locator('#delete-site-button')).toBeDisabled();
   await expect(page.locator('#dashboard-section-tab-admin')).toBeHidden();
+  await expect(page.locator('#dashboard-section-tab-traffic')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#site-team-card')).toBeHidden();
 });
 
@@ -286,6 +287,7 @@ test('validation requires valid owner email', async ({ page }) => {
 test('validation rejects invalid widget offset', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await page.locator('#new-site-button').click();
+  await page.locator('#dashboard-section-tab-feedback').click();
   await page.locator('#edit-site-name').fill('Invalid Offset');
   await page.locator('#edit-site-origin').fill(baseOrigin);
   await page.locator('#edit-site-owner').fill(config.adminEmail);
@@ -296,6 +298,7 @@ test('validation rejects invalid widget offset', async ({ page }) => {
 test('validation rejects hiding both widget feedback inputs', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await selectSite(page, primarySite.id);
+  await page.locator('#dashboard-section-tab-feedback').click();
   await page.locator('#widget-show-message-input').uncheck();
   await page.locator('#widget-show-sentiment-buttons').uncheck();
   await expect(page.locator('#site-status')).toContainText('Enable the message input, sentiment buttons, or both');
@@ -305,6 +308,7 @@ test('feedback widget accent color persists', async ({ page }) => {
   await updateSite(config, buildAdminCookie(), primarySite.id, { widget_accent_color: '#0d6efd' });
   await openDashboard(page, config, adminUser);
   await selectSite(page, primarySite.id);
+  await page.locator('#dashboard-section-tab-feedback').click();
   await page.locator('#widget-accent-color').fill('#22aa77');
   await expect.poll(async () => {
     const payload = await listSites(config, buildAdminCookie());

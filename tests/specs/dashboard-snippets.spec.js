@@ -105,6 +105,7 @@ test('customer snippets do not expose api_origin', async ({ page }) => {
 test('copy widget snippet updates button label', async ({ page }) => {
   await openDashboard(page, config, adminUser, { clipboard: true });
   await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-feedback').click();
   await expect(page.locator('#copy-widget-snippet')).toBeEnabled();
   await page.locator('#copy-widget-snippet').click();
   await expect(page.locator('#copy-widget-snippet')).toContainText('Copied');
@@ -113,6 +114,7 @@ test('copy widget snippet updates button label', async ({ page }) => {
 test('widget snippet copy button sits beside the snippet and matches its height', async ({ page }) => {
   await openDashboard(page, config, adminUser);
   await selectSite(page, site.id);
+  await page.locator('#dashboard-section-tab-feedback').click();
   await expectSnippetCopyLayout(page, '#widget-snippet', '#copy-widget-snippet');
 });
 
