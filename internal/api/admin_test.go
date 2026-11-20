@@ -894,7 +894,7 @@ func TestStreamFeedbackUpdatesReceivesCreateEvents(testingT *testing.T) {
 	subscriptionEvents := api.NewSubscriptionTestEventBroadcaster()
 	testingT.Cleanup(subscriptionEvents.Close)
 	siteHandlers := api.NewSiteHandlers(database, zap.NewNop(), testWidgetBaseURL, nil, nil, feedbackBroadcaster)
-	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true, testWidgetBaseURL, "unit-test-session-secret", nil)
+	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), feedbackBroadcaster, subscriptionEvents, nil, nil, true, testWidgetBaseURL, "unit-test-session-secret", nil, api.VisitCollectionPolicy{})
 
 	engine := gin.New()
 	engine.GET("/stream", func(context *gin.Context) {

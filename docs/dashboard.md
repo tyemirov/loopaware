@@ -75,7 +75,10 @@ Select a site row to open that site's overview. The traffic interval remains sel
 Select the Bootstrap house icon left of the avatar to open the previous site and tab.
 Daily-count sites show accepted requests and do not collect visitor identifiers.
 Detailed sites retain their own unique visitor counts in mixed reports.
-A combined unique visitor total is unavailable when the report includes a daily-count site.
+The Visitors tile shows recorded unique visitors summed across the sites that collect visitor identifiers.
+Sites with no traffic show zero. Daily-count sites contribute their request counts.
+The API represents a complete visitor total as null when the report includes a daily-count site.
+Statistics derives its recorded visitor subtotal from the detailed site rows in that report.
 Statistics loads current data on entry and when the app returns from the background.
 
 While open, it updates every 30 seconds and recovers automatically after request failures.
@@ -100,14 +103,15 @@ Aggregate sites show daily request counts. Their unique visitor, engagement, dev
 ## Location maps
 
 Web and mobile use the same Natural Earth world geography and equirectangular projection.
-The map shows location bubbles and labels. Mobile also shows location counts as native text.
+The map shows location bubbles. Mobile labels the selected bubble.
 Mobile bubble size shows unique visitors. Web bubble size shows page views.
 
 The selected traffic interval applies to the map and location counts.
 
-On mobile, select a bubble or location control to show its source and confidence.
+On mobile, the table ranks mapped locations by unique visitors, then by page views.
+Select a row or bubble to highlight both and show the location source and confidence beneath the row counts.
+Tap the selected row again to collapse its details. Traffic without a map point appears at the bottom of the table.
 The map fits the available width up to 720 points. Location selection remains after rotation.
-Unknown locations appear below the map.
 
 Light and dark themes apply automatically. Aggregate sites keep location metrics unavailable.
 The map uses local assets and does not request external map tiles.

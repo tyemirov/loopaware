@@ -30,9 +30,8 @@ export function locationMapPosition(location: LocationPoint, maximum: number): {
   };
 }
 
-export function locationMapImage(locations: LocationPoint[], colors: ThemeColors): string {
+export function locationMapImage(locations: LocationPoint[], colors: ThemeColors, labelWidth: number, selected?: LocationPoint): string {
   const maximum = Math.max(...locations.map(location => location.unique_visitor_count), 1);
-  const labelBoxes: Array<{left: number; right: number; top: number; bottom: number}> = [];
   const grid = [-120, -60, 0, 60, 120].map(longitude => {
     const { x } = projectLocationCoordinates({ latitude: 0, longitude });
     return `<line x1="${x}" y1="0" x2="${x}" y2="${locationMapHeight}"/>`;
@@ -40,32 +39,34 @@ export function locationMapImage(locations: LocationPoint[], colors: ThemeColors
     const { y } = projectLocationCoordinates({ latitude, longitude: 0 });
     return `<line x1="0" y1="${y}" x2="${locationMapWidth}" y2="${y}"/>`;
   })).join("");
-  const markers = locations.map(location => {
-    const { x: cx, y: cy, radius } = locationMapPosition(location, maximum);
-    const label = escapeXML(location.label);
-    const width = Math.max(58, Math.min(130, location.label.length * 6.5 + 18));
-    const left = Math.max(8, Math.min(locationMapWidth - width - 8, cx - width / 2));
-    let top = Math.max(10, Math.min(locationMapHeight - 32, cy < locationMapHeight * 0.52 ? cy + radius + 10 : cy - radius - 32));
-    for (const box of labelBoxes) {
-      if (left < box.right + 10 && left + width > box.left - 10 && top < box.bottom + 6 && top + 22 > box.top - 6) {
-        top = Math.min(locationMapHeight - 32, box.bottom + 6);
-      }
-    }
-    labelBoxes.push({left, right: left + width, top, bottom: top + 22});
-    const characters = Array.from(location.label);
-    const shortLabel = escapeXML(characters.length > 16 ? `${characters.slice(0, 15).join("")}…` : location.label);
-    return `<g><title>${label}: ${location.unique_visitor_count} unique visitors, ${location.visit_count} page views</title>
-      <line x1="${cx}" y1="${cy}" x2="${left + width / 2}" y2="${top + 11}" stroke="${colors.muted}"/>
-      <circle class="traffic-map__bubble" cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${radius.toFixed(2)}" fill="${colors.teal}" fill-opacity="0.35" stroke="${colors.tealDark}" stroke-width="1.5"/>
-      <text x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" text-anchor="middle" dominant-baseline="central" fill="${colors.ink}" font-size="14" font-family="sans-serif" font-weight="600">${location.unique_visitor_count}</text>
-      <rect x="${left}" y="${top}" width="${width}" height="22" rx="11" fill="${colors.surface}" stroke="${colors.border}"/>
-      <text class="traffic-map__bubble-label" x="${left + width / 2}" y="${top + 11}" text-anchor="middle" dominant-baseline="central" fill="${colors.ink}" font-size="11" font-family="sans-serif">${shortLabel}</text>
+  const bubble = (location: LocationPoint) => {
+    const { x, y, radius } = locationMapPosition(location, maximum);
+    const active = location === selected;
+    return `<g><title>${escapeXML(location.label)}: ${location.unique_visitor_count} unique visitors, ${location.visit_count} page views</title>
+      <circle class="traffic-map__bubble" cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${radius.toFixed(2)}" fill="${colors.teal}" fill-opacity="${active ? 0.65 : 0.35}" stroke="${active ? colors.ink : colors.tealDark}" stroke-width="${active ? 2.5 : 1.5}"/>
     </g>`;
-  }).join("");
+  };
+  const markers = locations.filter(location => location !== selected).map(bubble).join("");
+  const activeMarker = selected ? bubble(selected) + locationMapLabel(selected, maximum, colors, labelWidth) : "";
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${locationMapWidth}" height="${locationMapHeight}" viewBox="0 0 ${locationMapWidth} ${locationMapHeight}" data-map-source="natural-earth-110m" data-projection="equirectangular">
     <rect width="${locationMapWidth}" height="${locationMapHeight}" fill="${colors.surface}"/>
     <path class="traffic-map__land" d="${locationWorldLandPath}" fill="${colors.surfaceAlt}" stroke="${colors.muted}" stroke-opacity="0.5" stroke-width="0.75"/>
-    <g stroke="${colors.border}" stroke-width="1">${grid}</g>${markers}
+    <g stroke="${colors.border}" stroke-width="1">${grid}</g>${markers}${activeMarker}
   </svg>`;
   return `data:image/svg+xml;base64,${base64UTF8(svg)}`;
+}
+
+function locationMapLabel(location: LocationPoint, maximum: number, colors: ThemeColors, canvasWidth: number): string {
+  const { x, y, radius } = locationMapPosition(location, maximum);
+  const characters = Array.from(location.label);
+  const label = characters.length > 16 ? `${characters.slice(0, 15).join("")}…` : location.label;
+  const scale = locationMapWidth / canvasWidth;
+  const width = Math.min(locationMapWidth - 16, Math.max(58, Math.min(130, characters.length * 6.5 + 18)) * scale);
+  const height = 20 * scale;
+  const left = Math.max(8, Math.min(locationMapWidth - width - 8, x - width / 2));
+  const below = y <= locationMapHeight / 2;
+  const top = below ? y + radius + 6 : y - radius - 6 - height;
+  return `<line x1="${x}" y1="${below ? y + radius : y - radius}" x2="${left + width / 2}" y2="${below ? top : top + height}" stroke="${colors.muted}"/>
+    <rect x="${left}" y="${top}" width="${width}" height="${height}" rx="${4 * scale}" fill="${colors.surface}" stroke="${colors.border}"/>
+    <text class="traffic-map__bubble-label" x="${left + width / 2}" y="${top + height / 2}" text-anchor="middle" dominant-baseline="central" fill="${colors.ink}" font-size="${11 * scale}" font-family="sans-serif">${escapeXML(label)}</text>`;
 }

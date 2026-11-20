@@ -42,6 +42,16 @@ The selected manifest disables the lifecycle CI stage.
 Run `make ci` separately for source validation.
 Gateway owns lifecycle validation, artifact preparation, publication, deployment, and verification.
 
+The API trusts forwarded client addresses from the owned `mprlab-runtime` network, currently `192.168.96.0/20`.
+Keep `TRUSTED_PROXY_CIDR` in the selected manifest aligned with that network when its subnet changes.
+Caddy replaces incoming forwarding headers under its [default reverse proxy policy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#defaults).
+The ingress `access.trusted_networks` list controls rate-limit exemptions; it does not configure the API's proxy trust.
+
+On startup, a transactional one-time migration marks historical HeadlessChrome, Google-InspectionTool, and
+Chrome-Lighthouse visits as automated. The `browser_audit_visits_migrated` log records the committed changed-row count.
+The migration preserves all rows and other fields. Historical private proxy addresses cannot recover the original client
+address and remain intact. Reports read the corrected raw flags; previously delivered emails retain their original contents.
+
 LoopAware keeps its native builders and application inputs.
 
 The full pipeline has a completion limit of five hours and 30 minutes.

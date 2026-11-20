@@ -1,5 +1,5 @@
 // @ts-check
-import { test, expect } from '@playwright/test';
+import { test, expect, devices } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
 import { buildSessionCookie } from '../helpers/auth.js';
 import { buildAdminUser, ensureSiteForOrigin } from '../helpers/fixtures.js';
@@ -8,6 +8,9 @@ import { fetchVisitStats } from '../helpers/api.js';
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
 let site;
+
+// These scenarios model human traffic; headless audit clients are deliberately excluded.
+test.use({ userAgent: devices['Desktop Chrome'].userAgent });
 
 function buildAdminCookie() {
   return buildSessionCookie(config, adminUser);

@@ -335,7 +335,7 @@ mprlab_resources:
                         - name: TAUTH_TENANT_ID
                           value: loopaware
                         - name: TRUSTED_PROXY_CIDR
-                          value: 172.19.0.0/16
+                          value: 192.168.96.0/20
                       id: loopaware-api
                       image:
                         publication: backend-image

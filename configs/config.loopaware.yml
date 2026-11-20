@@ -1,5 +1,6 @@
 analytics:
   aggregate_retention_days: 90
+  exclude_private_ips: true
 
 server:
   address: "${APP_ADDR}"

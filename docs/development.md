@@ -42,6 +42,10 @@ Use `make test-unit` for Go-only tests and `make test-integration-api` to focus 
 (traces, screenshots, videos) land under `tests/test-results/` on failure. The integration runner tears its compose
 project down on exit, including failures and signal exits.
 
+Use `make test-traffic-identity` for proxy, address filtering, audit classification, and historical migration contracts.
+Use `make test-integration-traffic` for browser pixel and reload behavior. Its human-traffic scenarios use Playwright's
+standard Desktop Chrome user agent. The collector tests separately verify exclusion of headless audit user agents.
+
 The runner rejects inherited `LOOPAWARE_BASE_URL`, `LOOPAWARE_API_BASE_URL`, `LOOPAWARE_ENV_FILE`,
 `COMPOSE_PROJECT_NAME`, `DOCKER_HOST`, `DOCKER_CONTEXT`, and Docker TLS inputs. It requires a local `unix://` or `npipe://`
 Docker endpoint. It supplies its own localhost frontend, random loopback-only backend port, test env file, and unique

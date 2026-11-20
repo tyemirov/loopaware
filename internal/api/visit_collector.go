@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"net/netip"
 	"strconv"
 	"strings"
 	"time"
@@ -84,7 +85,13 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 	if rawURL == "" {
 		rawURL = queryReferrer
 	}
-	if h.isVisitRateLimited(publicRateKey(publicRateScopeVisit, site.ID, context.ClientIP())) {
+	clientIP := context.ClientIP()
+	clientAddress, addressErr := netip.ParseAddr(clientIP)
+	if addressErr != nil {
+		context.String(http.StatusInternalServerError, "/* client_address_unavailable */")
+		return
+	}
+	if h.isVisitRateLimited(publicRateKey(publicRateScopeVisit, site.ID, clientIP)) {
 		context.String(http.StatusTooManyRequests, "/* rate_limited */")
 		return
 	}
@@ -104,7 +111,7 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 		SiteID:           site.ID,
 		URL:              rawURL,
 		VisitorID:        visitorID,
-		IP:               context.ClientIP(),
+		IP:               clientIP,
 		UserAgent:        userAgentValue,
 		Referrer:         referrerValue,
 		IsBot:            isLikelyBotUserAgent(userAgentValue),
@@ -135,6 +142,11 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 		return
 	}
 
+	if h.visitCollectionPolicy.ExcludePrivateIPs && isInternalVisitAddress(clientAddress) {
+		writeVisitPixel(context)
+		return
+	}
+
 	if err := h.database.Create(&visit).Error; err != nil {
 		if h.logger != nil {
 			h.logger.Warn("visit_save_failed", zap.Error(err))
@@ -143,6 +155,15 @@ func (h *PublicHandlers) CollectVisit(context *gin.Context) {
 		return
 	}
 
+	writeVisitPixel(context)
+}
+
+func isInternalVisitAddress(address netip.Addr) bool {
+	address = address.Unmap()
+	return address.IsPrivate() || address.IsLoopback() || address.IsLinkLocalUnicast() || address.IsUnspecified() || address.IsMulticast()
+}
+
+func writeVisitPixel(context *gin.Context) {
 	context.Header("Content-Type", visitPixelContentType)
 	context.Header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 	context.Header("Pragma", "no-cache")
@@ -279,6 +300,9 @@ func parseVisitGeoCoordinate(rawValue string, minimum float64, maximum float64) 
 }
 
 func isLikelyBotUserAgent(userAgentValue string) bool {
+	if model.IsBrowserAuditUserAgent(userAgentValue) {
+		return true
+	}
 	normalizedUserAgent := strings.ToLower(strings.TrimSpace(userAgentValue))
 	if normalizedUserAgent == "" {
 		return false

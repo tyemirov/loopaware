@@ -27,6 +27,7 @@ var (
 // Config captures the populated backend runtime configuration.
 type Config struct {
 	AggregateRetentionDays    int
+	ExcludePrivateVisitIPs    bool
 	ApplicationAddress        string
 	DatabaseDriverName        string
 	DatabaseDataSourceName    string
@@ -58,9 +59,10 @@ type Document struct {
 	Admins        []string      `yaml:"admins"`
 }
 
-// Analytics declares the aggregate data retention window.
+// Analytics declares traffic collection and aggregate data retention policy.
 type Analytics struct {
-	RetentionDays int `yaml:"aggregate_retention_days"`
+	RetentionDays     int   `yaml:"aggregate_retention_days"`
+	ExcludePrivateIPs *bool `yaml:"exclude_private_ips"`
 }
 
 // Server holds HTTP runtime settings.
@@ -133,6 +135,7 @@ func LoadWithLookup(configFilePath string, expansionLookup sharedruntimeconfig.E
 func NewConfig(configFilePath string, document Document) (Config, error) {
 	config := Config{
 		AggregateRetentionDays:    document.Analytics.RetentionDays,
+		ExcludePrivateVisitIPs:    boolValue(document.Analytics.ExcludePrivateIPs),
 		ApplicationAddress:        strings.TrimSpace(document.Server.Address),
 		DatabaseDriverName:        strings.TrimSpace(document.Database.Driver),
 		DatabaseDataSourceName:    strings.TrimSpace(document.Database.DSN),
@@ -228,6 +231,9 @@ func missingRequiredFields(config Config, document Document) []string {
 		if strings.TrimSpace(value) == "" {
 			missingFields = append(missingFields, fieldPath)
 		}
+	}
+	if document.Analytics.ExcludePrivateIPs == nil {
+		missingFields = append(missingFields, "analytics.exclude_private_ips")
 	}
 
 	appendBlankField("server.address", config.ApplicationAddress)
