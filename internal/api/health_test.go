@@ -21,7 +21,7 @@ func TestHealthReadinessAndQuietSuccess(testingT *testing.T) {
 	require.NoError(testingT, err)
 	core, logs := observer.New(zap.InfoLevel)
 	logger := zap.New(core)
-	handlers := api.NewPublicHandlers(database, logger, nil, nil, nil, nil, false, "http://localhost", "health-test", nil)
+	handlers := api.NewPublicHandlers(database, logger, nil, nil, nil, nil, false, "http://localhost", "health-test", nil, api.VisitCollectionPolicy{})
 	router := gin.New()
 	router.Use(api.RequestLogger(logger))
 	router.GET(api.HealthPath, handlers.Health)

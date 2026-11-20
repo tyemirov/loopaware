@@ -73,7 +73,7 @@ func TestConfirmSubscriptionLinkRequiresSecret(testingT *testing.T) {
 	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil)
+	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil, api.VisitCollectionPolicy{})
 	router := gin.New()
 	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 
@@ -182,7 +182,7 @@ func TestUnsubscribeSubscriptionLinkRequiresSecret(testingT *testing.T) {
 	database = testutil.ConfigureDatabaseLogger(testingT, database)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil)
+	publicHandlers := api.NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, true, "http://loopaware.test", "", nil, api.VisitCollectionPolicy{})
 	router := gin.New()
 	router.GET("/public/subscriptions/unsubscribe-link", publicHandlers.UnsubscribeSubscriptionLinkJSON)
 

@@ -65,7 +65,7 @@ func buildAPIHarness(testingT *testing.T, notifier api.FeedbackNotifier, subscri
 
 	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
 	subscriptionEvents := api.NewSubscriptionTestEventBroadcaster()
-	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
+	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, subscriptionEvents, notifier, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender, api.VisitCollectionPolicy{})
 	router.POST("/public/feedback", publicHandlers.CreateFeedback)
 	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
 	router.GET("/public/widget-config", publicHandlers.WidgetConfig)
@@ -579,7 +579,7 @@ func TestSubscriptionNotificationFailureDoesNotBlock(testingT *testing.T) {
 	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	emailSender := &recordingEmailSender{testingT: testingT}
-	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender)
+	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, true, "http://loopaware.test", "unit-test-session-secret", emailSender, api.VisitCollectionPolicy{})
 
 	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
 	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
@@ -618,7 +618,7 @@ func TestSubscriptionNotificationsCanBeDisabled(testingT *testing.T) {
 	feedbackBroadcaster := api.NewFeedbackEventBroadcaster()
 	testingT.Cleanup(feedbackBroadcaster.Close)
 	emailSender := &recordingEmailSender{testingT: testingT}
-	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", emailSender)
+	publicHandlers := api.NewPublicHandlers(database, logger, feedbackBroadcaster, nil, nil, subscriptionNotifier, false, "http://loopaware.test", "unit-test-session-secret", emailSender, api.VisitCollectionPolicy{})
 	router.POST("/public/subscriptions", publicHandlers.CreateSubscription)
 	router.GET("/public/subscriptions/confirm-link", publicHandlers.ConfirmSubscriptionLinkJSON)
 

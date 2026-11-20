@@ -22,7 +22,7 @@ func TestConfirmSubscriptionLinkJSONReturnsBadRequestWhenSubscriberMissing(testi
 	require.NoError(testingT, openErr)
 	require.NoError(testingT, storage.AutoMigrate(database))
 
-	handlers := NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, false, "http://example.com", testTokenSecretValue, nil)
+	handlers := NewPublicHandlers(database, zap.NewNop(), nil, nil, nil, nil, false, "http://example.com", testTokenSecretValue, nil, VisitCollectionPolicy{})
 
 	token := buildSubscriptionToken(testingT, subscriptionConfirmationTokenPayload{
 		SubscriberID: testTokenSubscriberID,

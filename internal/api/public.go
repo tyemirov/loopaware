@@ -22,6 +22,7 @@ import (
 // PublicHandlers serves unauthenticated public API endpoints.
 type PublicHandlers struct {
 	database                   *gorm.DB
+	visitCollectionPolicy      VisitCollectionPolicy
 	logger                     *zap.Logger
 	rateWindow                 time.Duration
 	maxRequestsPerKeyPerWindow int
@@ -40,6 +41,11 @@ type PublicHandlers struct {
 	subscriptionTokenSecret    string
 	subscriptionTokenTTL       time.Duration
 	confirmationEmailSender    EmailSender
+}
+
+// VisitCollectionPolicy controls detailed traffic collection from internal client addresses.
+type VisitCollectionPolicy struct {
+	ExcludePrivateIPs bool
 }
 
 type publicRateCounter struct {
@@ -86,11 +92,12 @@ const (
 )
 
 // NewPublicHandlers constructs a PublicHandlers instance with the provided dependencies.
-func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, subscriptionEvents *SubscriptionTestEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool, publicBaseURL string, subscriptionTokenSecret string, confirmationEmailSender EmailSender) *PublicHandlers {
+func NewPublicHandlers(database *gorm.DB, logger *zap.Logger, feedbackBroadcaster *FeedbackEventBroadcaster, subscriptionEvents *SubscriptionTestEventBroadcaster, notifier FeedbackNotifier, subscriptionNotifier SubscriptionNotifier, subscriptionNotificationsEnabled bool, publicBaseURL string, subscriptionTokenSecret string, confirmationEmailSender EmailSender, visitCollectionPolicy VisitCollectionPolicy) *PublicHandlers {
 	normalizedPublicBaseURL := strings.TrimSpace(publicBaseURL)
 	normalizedTokenSecret := strings.TrimSpace(subscriptionTokenSecret)
 	return &PublicHandlers{
 		database:                   database,
+		visitCollectionPolicy:      visitCollectionPolicy,
 		logger:                     logger,
 		rateWindow:                 30 * time.Second,
 		maxRequestsPerKeyPerWindow: 6,
