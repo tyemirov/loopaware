@@ -3980,6 +3980,16 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I059] Replace mobile location tags with a ranked table.
+  Keep the compact map and show aligned unique visitor and page view counts.
+  Select a row or bubble to show the location source and confidence inline. Keep non-mappable counts below the ranked locations.
+
+  The table ranks mapped locations by unique visitors and page views. The compact map labels and highlights the selected bubble. The selected row shows its location details beneath the counts.
+  The mobile flow checks cover ordering, unmapped counts, selection, overlapping bubble targets, rotation, and map image errors. The browser suite checks that one escaped Unicode selection label renders at phone width. A Chromium component preview verified the layout in dark mode at 320 pixels and light mode at 393 pixels.
+  Final `make ci` passed with 99 mobile flow checks and 484 browser and API integration tests.
+  Changed files include `mobile/App.tsx`, `mobile/src/location-map.ts`, `mobile/scripts/test-app-flow.mjs`, `tests/specs/dashboard-surface-parity.spec.js`, `docs/dashboard.md`, and this tracker.
+
+
 - [x] [I058] (P1) Reorganize the README and preserve the reference material
   Goal:
   Give readers a concise product overview and a complete first-feedback procedure.
