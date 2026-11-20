@@ -1,10 +1,17 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 import { resolveTestConfig } from '../helpers/config.js';
-import { buildAdminUser, openDashboard } from '../helpers/fixtures.js';
+import { buildSessionCookie } from '../helpers/auth.js';
+import { buildAdminUser, buildUniqueOrigin, createTestSite, openDashboard } from '../helpers/fixtures.js';
 
 const config = resolveTestConfig();
 const adminUser = buildAdminUser(config);
+
+test.beforeAll(async () => {
+  await createTestSite(config, buildSessionCookie(config, adminUser), {
+    allowedOrigin: buildUniqueOrigin('dashboard-labels')
+  });
+});
 
 const labelCases = [
   { selector: '#new-site-button', text: 'New site' },

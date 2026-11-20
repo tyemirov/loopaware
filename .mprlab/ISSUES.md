@@ -38,6 +38,13 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B179] (P1) Make dashboard label tests independent of shard order.
+  Evidence: PR #442 run `44814058618`, Integration 2/3 job `136557693785`, times out waiting for a selected site in its first label test. The failing spec created no site and depended on data from earlier specs in the unsharded suite. Matrix fail-fast cancels the other jobs, then the aggregate test gate fails.
+  Requirements: Create the label spec's required site through the public API and verify it against a fresh integration database.
+  Resolution: The label spec creates one site with a unique origin through the real API in `beforeAll`. Added a focused label-only integration command.
+  Validation: The label-only run against a fresh database reproduced the same 90-second selected-site timeout before the fix. `LOOPAWARE_TEST_SUITE=test:dashboard-labels make test-integration` now passes all 73 cases, including new-site mode and the selected-site Admin controls. Focused diff review and `git diff --check` pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `tests/specs/dashboard-labels.spec.js`, `tests/package.json`.
+
 - [x] [B178] (P1) Trust the actual owned proxy network for detailed visitor addresses.
   Evidence: Caddy is 192.168.96.5 on mprlab-runtime 192.168.96.0/20, while the live LoopAware service receives TRUSTED_PROXY_CIDR=172.19.0.0/16. Forwarding headers are stripped and all 192 inspected rows store private proxy addresses.
   Resolution: The application manifest now trusts 192.168.96.0/20. Existing untrusted forwarding and edge geo rejection remains enforced. The separate ingress rate-limit exemption list is unchanged.
