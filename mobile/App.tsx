@@ -12,6 +12,7 @@ import {
   findNodeHandle,
   Modal,
   type DimensionValue,
+  type GestureResponderEvent,
   Image,
   Keyboard,
   Pressable,
@@ -742,7 +743,7 @@ function TrafficSection(props: { dashboard: SiteDashboard; interval: TrafficInte
         <Bars items={devices.device_types} labelFor={(item) => sentenceCase(item.device_type)} valueFor={(item) => item.unique_visitor_count} detailFor={item => `${formatCount(item.visit_count)} page views`} />
       </Section>
       <Section title="Locations">
-        <LocationMap locations={locations.locations} />
+        <LocationBreakdown locations={locations.locations} />
       </Section>
       <Section title="Trend">
         <TrendGraph trend={props.dashboard.trend.trend} measure="unique_visitors" />
@@ -761,10 +762,11 @@ function mappedLocation(location: LocationPoint): boolean {
     && (location.country !== "" || location.city !== "" || location.region !== "" || location.latitude !== 0 || location.longitude !== 0);
 }
 
-function unmappedLocationLabel(location: LocationPoint): string {
-  if (location.source === "locale") return "Browser language region:";
-  if (location.source === "edge_geo") return location.city || location.region ? "Coordinates unavailable:" : "Country only:";
-  return "Location unavailable";
+function unmappedLocationNote(location: LocationPoint): string {
+  if (location.source === "locale") return "Browser language region";
+  if (location.source === "unknown") return location.signal === "timezone_unknown" ? "Unrecognized time zone" : "No location signal";
+  if (location.source === "edge_geo") return location.city || location.region ? "Coordinates unavailable" : "Country only";
+  return "";
 }
 
 function locationIdentity(location: LocationPoint): string {
@@ -772,61 +774,113 @@ function locationIdentity(location: LocationPoint): string {
 }
 
 function locationCountSummary(location: LocationPoint): string {
-  return `${location.label} ${formatCount(location.unique_visitor_count)} unique visitors ${formatCount(location.visit_count)} page views`;
+  return `${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`;
 }
 
-function LocationMap(props: { locations: LocationPoint[] }) {
+function locationDetail(location: LocationPoint): string {
+  if (location.label === "UTC" || location.signal === "timezone_unknown") return "Time zone has no map location";
+  if (location.source === "unknown") return "No geographic information was available for these visits";
+  if (location.source === "network") return "The network signal has no geographic coordinates";
+  const confidence = `${location.confidence}% location confidence`;
+  if (location.source === "timezone") return `Estimated from time zone · ${confidence}`;
+  if (location.source === "edge_geo" && mappedLocation(location)) return `Edge geolocation · ${confidence}`;
+  return confidence;
+}
+
+function LocationBreakdown({ locations }: { locations: LocationPoint[] }) {
   const { colors, styles } = useAppStyles();
-  const plotted = props.locations.filter(mappedLocation);
-  const unlocated = props.locations.filter(location => !mappedLocation(location));
-  const maximum = Math.max(1, ...plotted.map(location => location.unique_visitor_count));
+  const { plotted, unlocated } = useMemo(() => {
+    const ranked = [...locations].sort((a, b) =>
+      b.unique_visitor_count - a.unique_visitor_count || b.visit_count - a.visit_count || a.label.localeCompare(b.label));
+    return { plotted: ranked.filter(mappedLocation), unlocated: ranked.filter(location => !mappedLocation(location)) };
+  }, [locations]);
   const [selectedID, setSelectedID] = useState<string | null>(null);
   const [frameWidth, setFrameWidth] = useState<number | null>(null);
-  const selected = plotted.find(location => locationIdentity(location) === selectedID) ?? plotted[0];
-  const image = useMemo(() => locationMapImage(props.locations.filter(mappedLocation), colors), [props.locations, colors]);
+  const selectedMarker = plotted.find(location => locationIdentity(location) === selectedID);
+  const canvasWidth = frameWidth === null ? null : Math.min(locationMapWidth, frameWidth);
+  const labelWidth = selectedMarker && canvasWidth ? canvasWidth : locationMapWidth;
+  const image = useMemo(() => locationMapImage(plotted, colors, labelWidth, selectedMarker), [plotted, colors, labelWidth, selectedMarker]);
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [image]);
-  if (props.locations.length === 0) return <EmptyInline text="No location data yet." />;
-  const description = plotted.map(location => `${location.label}: ${formatCount(location.unique_visitor_count)} unique visitors, ${formatCount(location.visit_count)} page views`).join("; ");
+
+  if (locations.length === 0) return <EmptyInline text="No location data yet." />;
+  const maximum = Math.max(1, ...plotted.map(location => location.unique_visitor_count));
+  const markers = plotted.map(location => ({ location, ...locationMapPosition(location, maximum) }));
+
+  function selectMarker(marker: typeof markers[number], event: GestureResponderEvent) {
+    const touch = event?.nativeEvent;
+    if (!canvasWidth || !touch || !Number.isFinite(touch.locationX) || !Number.isFinite(touch.locationY)) {
+      setSelectedID(locationIdentity(marker.location));
+      return;
+    }
+    // Neighboring 44-point targets overlap on narrow screens. Use the closest bubble to the tap.
+    const scale = locationMapWidth / canvasWidth;
+    const x = marker.x + (touch.locationX - locationMapTouchSize / 2) * scale;
+    const y = marker.y + (touch.locationY - locationMapTouchSize / 2) * scale;
+    const distance = (point: typeof marker) => (point.x - x) ** 2 + (point.y - y) ** 2;
+    const nearest = markers.reduce((closest, point) => distance(point) < distance(closest) ? point : closest, marker);
+    setSelectedID(locationIdentity(nearest.location));
+  }
+
+  function renderLocationRow(location: LocationPoint, note = "") {
+    const id = locationIdentity(location);
+    const label = location.label === "UTC" ? "Unknown location" : location.label;
+    const selected = selectedID === id;
+    const detail = selected ? locationDetail(location) : "";
+    const subject = label === "Unknown location" ? label : `${label} location`;
+    return (
+      <Pressable key={id} accessibilityRole="button"
+        accessibilityLabel={`Select ${subject}${note ? `, ${note.toLowerCase()}` : ""}`}
+        accessibilityValue={{ text: [locationCountSummary(location), detail].filter(Boolean).join(". ") }}
+        accessibilityState={{ selected, expanded: selected }}
+        onPress={() => setSelectedID(selected ? null : id)}
+        style={[styles.locationRow, selected && styles.locationRowSelected]}>
+        <View style={styles.locationColumns}>
+          <View style={styles.locationNameColumn}>
+            <Text style={styles.locationName}>{label}</Text>
+            {note ? <Text style={styles.locationMetadata}>{note}</Text> : null}
+          </View>
+          <Text style={[styles.locationCountColumn, styles.locationNumber]}>{formatCount(location.unique_visitor_count)}</Text>
+          <Text style={[styles.locationCountColumn, styles.locationNumber]}>{formatCount(location.visit_count)}</Text>
+        </View>
+        {detail ? <Text style={styles.locationMetadata}>{detail}</Text> : null}
+      </Pressable>
+    );
+  }
+
   return <View style={styles.sectionStack}>
     {plotted.length > 0 ? <>
-    <View testID="location-map-frame" style={styles.locationMapFrame}
-      onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
-      <View testID="location-map-canvas" style={[styles.locationMapCanvas, frameWidth === null ? null : { width: Math.min(locationMapWidth, frameWidth) }]}>
-        <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel={`Visitor location map, unique visitors. ${description}`}
-          style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
-          onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
-        {plotted.map(location => {
-          const position = locationMapPosition(location, maximum);
-          return <Pressable key={locationIdentity(location)} accessibilityRole="button"
-            accessibilityLabel={`Show ${location.label} on map`}
-            accessibilityValue={{ text: locationCountSummary(location) }}
-            accessibilityState={{ selected: location === selected }}
-            onPress={() => setSelectedID(locationIdentity(location))}
-            style={[styles.locationMapMarker, { left: `${position.x / locationMapWidth * 100}%`, top: `${position.y / locationMapHeight * 100}%` }, location === selected && styles.locationMapMarkerActive]} />;
-        })}
+      <View testID="location-map-frame" style={styles.locationMapFrame}
+        onLayout={event => setFrameWidth(event.nativeEvent.layout.width)}>
+        <View testID="location-map-canvas" style={[styles.locationMapCanvas, canvasWidth === null ? null : { width: canvasWidth }]}>
+          <FaviconImage source={{ uri: image }} contentFit="contain" accessible accessibilityLabel="Visitor location map. Bubble size shows unique visitors."
+            style={{ width: "100%", aspectRatio: locationMapWidth / locationMapHeight, borderRadius: 12 }}
+            onError={() => setFailed(true)} onLoad={() => setFailed(false)} />
+          {!failed && markers.map(marker => (
+            <Pressable key={locationIdentity(marker.location)} accessibilityRole="button"
+              accessibilityLabel={`Show ${marker.location.label} on map`}
+              accessibilityValue={{ text: locationCountSummary(marker.location) }}
+              accessibilityState={{ selected: marker.location === selectedMarker }}
+              onPress={event => selectMarker(marker, event)}
+              style={[styles.locationMapMarker, { left: `${marker.x / locationMapWidth * 100}%`, top: `${marker.y / locationMapHeight * 100}%` }]} />
+          ))}
+        </View>
       </View>
-    </View>
-    {failed ? <EmptyInline text="Location map image unavailable. Location counts appear below." /> : null}
-    <Text style={styles.helperText}>Bubble size shows unique visitors. Timezone points are estimates.</Text>
-    <View style={styles.locationMapChoices}>
-      {plotted.map(location => <Pressable key={locationIdentity(location)} accessibilityRole="button"
-        accessibilityLabel={`Select ${location.label} location`}
-        accessibilityValue={{ text: locationCountSummary(location) }}
-        accessibilityState={{ selected: location === selected }}
-        onPress={() => setSelectedID(locationIdentity(location))}
-        style={[styles.locationMapChoice, location === selected && styles.locationMapChoiceActive]}>
-        <Text style={styles.helperText}>{locationCountSummary(location)}</Text>
-      </Pressable>)}
-    </View>
-    {selected ? <View style={styles.locationMapDetail}>
-      <Text style={styles.helperText}>{locationCountSummary(selected)}</Text>
-      <Text style={styles.helperText}>{selected.source.replace(/_/g, " ")} · {selected.confidence}% location confidence</Text>
-    </View> : null}
+      {failed
+        ? <EmptyInline text="Location map image unavailable. Location counts appear below." />
+        : <Text style={styles.locationMetadata}>Bubble size shows unique visitors. Time zone locations are estimates.</Text>}
     </> : null}
-    {unlocated.map(location => <Text key={locationIdentity(location)} style={styles.helperText}>
-      {`${unmappedLocationLabel(location)} ${locationCountSummary(location)}`}
-    </Text>)}
+    <View>
+      <View style={[styles.locationColumns, styles.locationTableHeading]}>
+        <Text style={[styles.locationNameColumn, styles.locationColumnLabel]}>Location</Text>
+        <Text style={[styles.locationCountColumn, styles.locationColumnLabel]}>Unique visitors</Text>
+        <Text style={[styles.locationCountColumn, styles.locationColumnLabel]}>Page views</Text>
+      </View>
+      {plotted.map(location => renderLocationRow(location))}
+      {unlocated.length > 0 ? <View style={plotted.length > 0 && styles.unmappedLocationRows}>
+        {unlocated.map(location => renderLocationRow(location, unmappedLocationNote(location)))}
+      </View> : null}
+    </View>
   </View>;
 }
 
@@ -1662,35 +1716,59 @@ function createStyles(colors: ThemeColors) { return StyleSheet.create({
     justifyContent: "center",
     transform: [{ translateX: -locationMapTouchSize / 2 }, { translateY: -locationMapTouchSize / 2 }],
   },
-  locationMapMarkerActive: {
-    zIndex: 1,
-  },
-  locationMapChoices: {
+  locationColumns: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    alignItems: "baseline",
     gap: 8,
-    justifyContent: "center",
   },
-  locationMapChoice: {
+  locationTableHeading: {
+    alignItems: "flex-end",
+    paddingHorizontal: 8,
+    paddingBottom: 8,
+  },
+  locationNameColumn: {
+    flex: 1,
+  },
+  locationCountColumn: {
+    width: "24%",
+    textAlign: "right",
+  },
+  locationColumnLabel: {
+    color: colors.muted,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  locationRow: {
     minHeight: locationMapTouchSize,
-    maxWidth: "100%",
     justifyContent: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
-    borderWidth: 1,
-    borderRadius: 999,
-    borderColor: colors.border,
-    backgroundColor: colors.surfaceAlt,
+    gap: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
-  locationMapChoiceActive: {
-    borderColor: colors.teal,
+  locationRowSelected: {
     backgroundColor: colors.accentSurface,
   },
-  locationMapDetail: {
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: 8,
-    padding: 10,
-    gap: 4,
+  unmappedLocationRows: {
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  locationName: {
+    color: colors.ink,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  locationNumber: {
+    color: colors.ink,
+    fontSize: 14,
+    fontVariant: ["tabular-nums"],
+  },
+  locationMetadata: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
   },
   statGrid: {
     flexDirection: "row",
