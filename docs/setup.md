@@ -100,6 +100,7 @@ LoopAware reads one backend runtime YAML file through `github.com/tyemirov/utils
 ```yaml
 analytics:
   aggregate_retention_days: 90
+  exclude_private_ips: true
 server:
   address: "${APP_ADDR}"
   public_base_url: "${PUBLIC_BASE_URL}"
@@ -128,6 +129,11 @@ admins:
 ```
 
 LoopAware loads the file specified by `--config` (default `configs/config.loopaware.yml`) before starting the HTTP server. Administrator emails come from the YAML `admins` list. When the list is empty the server starts without administrators and records a warning in the logs.
+
+`analytics.exclude_private_ips` is required. When true, detailed traffic excludes private, loopback, link-local,
+unspecified, and multicast client addresses after trusted forwarding resolution. IPv4-mapped IPv6 addresses follow
+the IPv4 policy. The isolated integration configuration sets this value to false to collect intentional local test traffic.
+Aggregate daily counts retain their accepted-request semantics.
 
 ### 2. Placeholder inputs
 

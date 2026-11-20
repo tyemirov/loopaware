@@ -125,6 +125,10 @@ Equal unique counts use the canonical bucket key in ascending order.
 The site, interval, and bot filters apply to both metrics.
 A visitor can appear in multiple buckets or dates. These unique counts are not additive.
 
+When `analytics.exclude_private_ips` is true, `/public/visits` excludes resolved private, loopback, link-local,
+unspecified, and multicast client addresses. Valid excluded requests receive the normal uncached 1×1 GIF without a stored visit.
+Site, profile, origin, input validation, and rate limits still apply. This policy does not change aggregate daily counts.
+
 Aggregate sites keep their unavailable visitor metrics.
 
 The `/api/me` response includes a `role` value of `admin` or `user` and an `avatar.url` pointing to the caller's cached

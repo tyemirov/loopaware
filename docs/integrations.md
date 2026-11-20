@@ -126,6 +126,11 @@ The traffic pixel records page visits per site and powers the dashboard Traffic 
    list are rejected. Traffic from known bot user-agent signatures is stored but excluded from default dashboard totals,
    top-page rankings, trends, attribution, engagement, devices, and locations.
 
+With `analytics.exclude_private_ips: true`, a valid detailed pixel from an internal client returns the same uncached GIF
+without storing a visit. This applies to the resolved client address, after trusted proxy processing.
+Recognized automation includes HeadlessChrome, Google-InspectionTool, and Chrome-Lighthouse.
+Unique visitors count persistent browser identifiers, so separate browser storage and automated clients can create separate identifiers.
+
 The collector stores the `referrer` query value as the page referrer. An empty value means no reported referral.
 The HTTP `Referer` header identifies the page that sends the pixel request. It does not identify the visitor source.
 
