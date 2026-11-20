@@ -154,12 +154,29 @@
         z-index: 1300;
       }
       .traffic-chart {
+        position: relative;
         min-height: 9rem;
       }
       .traffic-chart svg {
         display: block;
         width: 100%;
         height: 9rem;
+      }
+      .traffic-trend-tooltip {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+        width: max-content;
+        max-width: calc(100% - 1rem);
+        padding: 0.5rem 0.625rem;
+        border: 1px solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius-sm);
+        background: var(--bs-body-bg);
+        color: var(--bs-body-color);
+        box-shadow: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.2);
+        font-size: 0.75rem;
+        line-height: 1.4;
+        white-space: pre-line;
       }
       .traffic-bars {
         display: grid;
@@ -509,13 +526,13 @@
             <div class="mb-3" role="navigation" aria-label="Dashboard sections">
               <ul class="nav nav-tabs nav-justified w-100" id="dashboard-section-tabs">
                 <li class="nav-item" role="presentation">
-                  <button class="nav-link active w-100" id="dashboard-section-tab-feedback" type="button" role="tab" aria-selected="true">Feedback</button>
+                  <button class="nav-link active w-100" id="dashboard-section-tab-traffic" type="button" role="tab" aria-selected="true">Traffic</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link w-100" id="dashboard-section-tab-feedback" type="button" role="tab" aria-selected="false">Feedback</button>
                 </li>
                 <li class="nav-item" role="presentation">
                   <button class="nav-link w-100" id="dashboard-section-tab-subscriptions" type="button" role="tab" aria-selected="false">Subscriptions</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link w-100" id="dashboard-section-tab-traffic" type="button" role="tab" aria-selected="false">Traffic</button>
                 </li>
                 <li class="nav-item" role="presentation">
                   <button class="nav-link w-100" id="dashboard-section-tab-health" type="button" role="tab" aria-selected="false">Health</button>
@@ -1955,7 +1972,8 @@
         var dashboardSectionTabHealth = document.getElementById('dashboard-section-tab-health');
         var dashboardSectionTabSentry = document.getElementById('dashboard-section-tab-sentry');
         var dashboardSectionTabAdmin = document.getElementById('dashboard-section-tab-admin');
-        var dashboardSectionCurrentKey = 'feedback';
+        var dashboardSectionDefaultKey = 'traffic';
+        var dashboardSectionCurrentKey = dashboardSectionDefaultKey;
         var trafficIntervalAllValue = 'all';
         var trafficIntervalOneDayValue = '1day';
         var trafficIntervalSevenDaysValue = '7days';
@@ -3621,28 +3639,12 @@
         }
         function setAllSitesTrafficCounts(total, unique, siteCount) {
           if (allSitesVisitCountElement) {
-            var normalizedTotal = typeof total === 'number' && total > 0 ? total : 0;
-            if (normalizedTotal === 0) {
-              allSitesVisitCountElement.classList.add('d-none');
-              allSitesVisitCountElement.textContent = '';
-            } else {
-              allSitesVisitCountElement.classList.remove('d-none');
-              allSitesVisitCountElement.textContent = normalizedTotal + ' visits';
-            }
+            allSitesVisitCountElement.classList.remove('d-none');
+            allSitesVisitCountElement.textContent = total + ' visits';
           }
           if (allSitesUniqueVisitorCountElement) {
-            var normalizedUnique = typeof unique === 'number' && unique > 0 ? unique : 0;
-            if (normalizedUnique === 0) {
-              allSitesUniqueVisitorCountElement.classList.add('d-none');
-              allSitesUniqueVisitorCountElement.textContent = '';
-            } else {
-              allSitesUniqueVisitorCountElement.classList.remove('d-none');
-              allSitesUniqueVisitorCountElement.textContent = normalizedUnique + ' unique';
-            }
-          }
-          if (unique === null) {
-            if (allSitesUniqueVisitorCountElement) { allSitesUniqueVisitorCountElement.classList.remove('d-none'); allSitesUniqueVisitorCountElement.textContent = aggregateTrafficText.unique; }
-            if (allSitesVisitCountElement) { allSitesVisitCountElement.classList.remove('d-none'); allSitesVisitCountElement.textContent = total + ' recorded requests'; }
+            allSitesUniqueVisitorCountElement.classList.remove('d-none');
+            allSitesUniqueVisitorCountElement.textContent = unique + ' unique';
           }
           if (allSitesSiteCountElement) {
             var normalizedSiteCount = typeof siteCount === 'number' && siteCount > 0 ? siteCount : 0;
@@ -3663,7 +3665,7 @@
                 site_id: site.site_id || '',
                 site_name: site.site_name || site.site_id || '',
                 visit_count: Number(site.visit_count) || 0,
-                unique_visitor_count: site.unique_visitor_count === null ? null : Number(site.unique_visitor_count) || 0
+                unique_visitor_count: site.unique_visitor_count
               };
             }).filter(function(site) {
               return site.site_id;
@@ -3674,7 +3676,7 @@
               site_id: site.id || '',
               site_name: site.name || site.id || '',
               visit_count: Number(site.visit_count) || 0,
-              unique_visitor_count: site.unique_visitor_count === null ? null : Number(site.unique_visitor_count) || 0
+              unique_visitor_count: site.unique_visitor_count === null ? 0 : site.unique_visitor_count
             };
           }).filter(function(site) {
             return site.site_id;
@@ -4040,8 +4042,8 @@
           var totalVisits = selectedSites.reduce(function(total, site) {
             return total + (Number(site.visit_count) || 0);
           }, 0);
-          var uniqueVisitors = selectedSites.some(function(site) { return site.unique_visitor_count === null; }) ? null : selectedSites.reduce(function(total, site) {
-            return total + (Number(site.unique_visitor_count) || 0);
+          var uniqueVisitors = selectedSites.reduce(function(total, site) {
+            return total + site.unique_visitor_count;
           }, 0);
           setAllSitesTrafficCounts(totalVisits, uniqueVisitors, selectedSites.length);
           renderAllSitesTrafficSites(selectedSites);
@@ -4725,13 +4727,20 @@
           return value.trim();
         }
 
+        function selectDashboardSite(siteIdentifier) {
+          if (state.selectedSiteId !== siteIdentifier) {
+            state.selectedSiteId = siteIdentifier;
+            dashboardSectionCurrentKey = dashboardSectionDefaultKey;
+          }
+        }
+
         function setDashboardSection(sectionKey) {
           var key = (sectionKey || '').toLowerCase();
           if (key !== 'feedback' && key !== 'subscriptions' && key !== 'traffic' && key !== 'health' && key !== 'sentry' && key !== 'admin') {
-            key = 'feedback';
+            key = dashboardSectionDefaultKey;
           }
           if (key === 'admin' && !selectedSiteHasAdminSection()) {
-            key = 'feedback';
+            key = dashboardSectionDefaultKey;
           }
           dashboardSectionCurrentKey = key;
           applyDashboardSectionSelection();
@@ -4759,7 +4768,7 @@
         function applyDashboardSectionSelection() {
           var showAdmin = selectedSiteHasAdminSection();
           if (!showAdmin && dashboardSectionCurrentKey === 'admin') {
-            dashboardSectionCurrentKey = 'feedback';
+            dashboardSectionCurrentKey = dashboardSectionDefaultKey;
           }
           setDashboardSectionTabVisible(dashboardSectionTabAdmin, showAdmin);
           setTabButtonState(dashboardSectionTabFeedback, dashboardSectionCurrentKey === 'feedback');
@@ -5018,7 +5027,7 @@
                 }
               });
             }
-            state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
+            selectDashboardSite(state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue);
             state.selectedSentryIssueId = '';
             state.pendingDeletionSiteId = '';
             if (deleteSiteModal) {
@@ -5236,7 +5245,7 @@
           var previousSelectedSiteId = state.selectedSiteId;
 
           if (!state.selectedSiteId && hasSites) {
-            state.selectedSiteId = filteredSites[0].id;
+            selectDashboardSite(filteredSites[0].id);
           }
 
           if (!isNewSiteSelected()) {
@@ -5245,11 +5254,11 @@
             });
             if (!selectedExists) {
               if (hasSites) {
-                state.selectedSiteId = filteredSites[0].id;
+                selectDashboardSite(filteredSites[0].id);
               } else if (siteSearchQuery === '') {
-                state.selectedSiteId = state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue;
+                selectDashboardSite(state.sites.length > 0 ? state.sites[0].id : newSiteOptionValue);
               } else {
-                state.selectedSiteId = '';
+                selectDashboardSite('');
               }
             }
           }
@@ -5420,7 +5429,7 @@
           }
           cancelAutoSave();
           clearValidationFeedback();
-          state.selectedSiteId = siteIdentifier;
+          selectDashboardSite(siteIdentifier);
           state.selectedSentryIssueId = '';
           renderSites();
         }
@@ -6573,7 +6582,7 @@
           }
           var entries = Array.isArray(points) ? points : [];
           var hasUniqueVisitors = !entries.some(function(point) { return point.unique_visitors === null; });
-          var requestLabel = container === allSitesTrafficTrendChart ? 'Recorded requests' : 'Requests';
+          var requestLabel = 'Requests';
           var primarySeriesLabel = hasUniqueVisitors ? 'Visits' : requestLabel;
           var maximum = entries.reduce(function(currentMaximum, point) {
             return Math.max(currentMaximum, Number(point && point.page_views) || 0, Number(point && point.unique_visitors) || 0);
@@ -6592,12 +6601,14 @@
           var bottomPadding = 46;
           var xAxisLabelOffset = 18;
           var xAxisTickLength = 5;
+          var trendMarkerRadius = 3;
           var usableWidth = chartWidth - leftPadding - rightPadding;
           var usableHeight = chartHeight - topPadding - bottomPadding;
           var axisUnitLabel = hasUniqueVisitors ? 'Visits / visitors' : requestLabel;
           var svg = document.createElementNS(namespace, 'svg');
           svg.setAttribute('viewBox', '0 0 ' + chartWidth + ' ' + chartHeight);
           svg.setAttribute('role', 'img');
+          svg.setAttribute('tabindex', '0');
 
           function formatTrendScaleValue(value) {
             var roundedValue = Math.round(Number(value) || 0);
@@ -6746,13 +6757,10 @@
               var marker = document.createElementNS(namespace, 'circle');
               marker.setAttribute('cx', xPositionForPointIndex(index).toFixed(1));
               marker.setAttribute('cy', (topPadding + usableHeight - usableHeight * value / maximum).toFixed(1));
-              marker.setAttribute('r', '3');
+              marker.setAttribute('r', String(trendMarkerRadius));
               marker.setAttribute('fill', color);
               var description = point.date + ': ' + value + ' ' + label.toLowerCase();
               marker.setAttribute('aria-label', description);
-              var title = document.createElementNS(namespace, 'title');
-              title.textContent = description;
-              marker.appendChild(title);
               svg.appendChild(marker);
             });
           }
@@ -6766,6 +6774,82 @@
           legend.className = 'd-flex gap-3 small text-muted mt-2';
           legend.innerHTML = '<span><span class="badge bg-primary me-1">&nbsp;</span>' + primarySeriesLabel + '</span>' + (hasUniqueVisitors ? '<span><span class="badge bg-success me-1">&nbsp;</span>Unique</span>' : '');
           container.appendChild(legend);
+
+          var tooltip = document.createElement('div');
+          tooltip.id = container.id + '-tooltip';
+          tooltip.className = 'traffic-trend-tooltip';
+          tooltip.setAttribute('role', 'tooltip');
+          tooltip.setAttribute('aria-live', 'polite');
+          tooltip.hidden = true;
+          svg.setAttribute('aria-describedby', tooltip.id);
+          container.appendChild(tooltip);
+          var activePointIndex = entries.length - 1;
+
+          function hideTrendTooltip() {
+            tooltip.hidden = true;
+          }
+
+          function showTrendTooltip(pointIndex, clientPosition) {
+            activePointIndex = pointIndex;
+            var point = entries[pointIndex];
+            tooltip.textContent = point.date + ' (UTC)\n' + primarySeriesLabel + ': ' + point.page_views + (hasUniqueVisitors ? '\nUnique: ' + point.unique_visitors : '');
+            tooltip.hidden = false;
+            var containerBox = container.getBoundingClientRect();
+            tooltip.style.left = Math.max(8, Math.min(clientPosition.x - containerBox.left + 12, container.clientWidth - tooltip.offsetWidth - 8)) + 'px';
+            tooltip.style.top = Math.max(8, Math.min(clientPosition.y - containerBox.top + 12, container.clientHeight - tooltip.offsetHeight - 8)) + 'px';
+          }
+
+          function inspectTrendPointer(event) {
+            if (event.type === 'pointerdown') {
+              svg.focus({ preventScroll: true });
+            }
+            var pointer = svg.createSVGPoint();
+            pointer.x = event.clientX;
+            pointer.y = event.clientY;
+            var chartPoint = pointer.matrixTransform(svg.getScreenCTM().inverse());
+            if (chartPoint.x < leftPadding - trendMarkerRadius || chartPoint.x > chartWidth - rightPadding + trendMarkerRadius || chartPoint.y < topPadding - trendMarkerRadius || chartPoint.y > topPadding + usableHeight + trendMarkerRadius) {
+              hideTrendTooltip();
+              return;
+            }
+            var nearestIndex = 0;
+            entries.forEach(function(point, index) {
+              if (Math.abs(xPositionForPointIndex(index) - chartPoint.x) < Math.abs(xPositionForPointIndex(nearestIndex) - chartPoint.x)) {
+                nearestIndex = index;
+              }
+            });
+            showTrendTooltip(nearestIndex, { x: event.clientX, y: event.clientY });
+          }
+
+          function inspectTrendPoint(pointIndex) {
+            var point = svg.createSVGPoint();
+            point.x = xPositionForPointIndex(pointIndex);
+            point.y = topPadding + usableHeight - usableHeight * entries[pointIndex].page_views / maximum;
+            showTrendTooltip(pointIndex, point.matrixTransform(svg.getScreenCTM()));
+          }
+
+          svg.addEventListener('pointermove', inspectTrendPointer);
+          svg.addEventListener('pointerdown', inspectTrendPointer);
+          svg.addEventListener('pointerleave', function(event) {
+            if (event.pointerType !== 'touch') {
+              hideTrendTooltip();
+            }
+          });
+          svg.addEventListener('pointercancel', hideTrendTooltip);
+          svg.addEventListener('blur', hideTrendTooltip);
+          svg.addEventListener('focus', function() { inspectTrendPoint(entries.length - 1); });
+          svg.addEventListener('keydown', function(event) {
+            var pointIndex = activePointIndex;
+            switch (event.key) {
+              case 'ArrowLeft': pointIndex = Math.max(0, pointIndex - 1); break;
+              case 'ArrowRight': pointIndex = Math.min(entries.length - 1, pointIndex + 1); break;
+              case 'Home': pointIndex = 0; break;
+              case 'End': pointIndex = entries.length - 1; break;
+              case 'Escape': hideTrendTooltip(); event.preventDefault(); return;
+              default: return;
+            }
+            event.preventDefault();
+            inspectTrendPoint(pointIndex);
+          });
         }
 
         function renderTrendChart(points) {
@@ -6821,7 +6905,7 @@
             visitCell.textContent = String(Number(site.visit_count) || 0);
             var uniqueCell = document.createElement('td');
             uniqueCell.className = 'text-end';
-            uniqueCell.textContent = site.unique_visitor_count === null ? 'Not collected (daily counts)' : String(Number(site.unique_visitor_count) || 0);
+            uniqueCell.textContent = String(site.unique_visitor_count);
             row.appendChild(nameCell);
             row.appendChild(visitCell);
             row.appendChild(uniqueCell);
@@ -8982,7 +9066,7 @@
             state.siteSentryIssues = {};
           }
           state.siteSentryIssues[payload.id] = [];
-          state.selectedSiteId = payload.id;
+          selectDashboardSite(payload.id);
           state.selectedSentryIssueId = '';
           renderSites({ revealSelection: true });
           finalizeAutoSave();
@@ -9019,7 +9103,7 @@
             }
             cancelAutoSave();
             clearValidationFeedback();
-            state.selectedSiteId = newSiteOptionValue;
+            selectDashboardSite(newSiteOptionValue);
             state.selectedSentryIssueId = '';
             renderSites();
           });
