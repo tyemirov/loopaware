@@ -38,6 +38,21 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B178] (P1) Trust the actual owned proxy network for detailed visitor addresses.
+  Evidence: Caddy is 192.168.96.5 on mprlab-runtime 192.168.96.0/20, while the live LoopAware service receives TRUSTED_PROXY_CIDR=172.19.0.0/16. Forwarding headers are stripped and all 192 inspected rows store private proxy addresses.
+  Resolution: The application manifest now trusts 192.168.96.0/20. Existing untrusted forwarding and edge geo rejection remains enforced. The separate ingress rate-limit exemption list is unchanged.
+  Validation: The manifest regression reproduced the mismatch. HTTP regressions cover public IPv4/IPv6 through the private proxy, chained forwarding, untrusted spoofing, missing/malformed headers, and IPv4-mapped addresses. The isolated Docker proxy security suite passes all seven cases. Independent architect review approved the trust boundary. Final `make ci` passed, including all 484 browser and API integration scenarios.
+  Files: `.mprlab/deploy/resources.yml`, `cmd/configaudit/traffic_identity_test.go`, `internal/api/traffic_identity_transport_test.go`, `Makefile`, and `docs/deployment.md`.
+
+- [x] [B177] (P1) Exclude identifiable browser audit tools from visitor metrics.
+  Expected behavior excludes recognized automated traffic from the human traffic report.
+  The tyemirov.net thirty-day export inspected on November 19 contains seven Los Angeles bucket page views from five distinct identifiers whose user agents identify HeadlessChrome, Google-InspectionTool, or Chrome-Lighthouse.
+  All seven appear in the non-bot report. The collector's token list omits these tool identifiers.
+  Resolution: A shared classifier marks the three audit signatures. A transactional startup migration updates only their historical bot flags in 500-row keyset batches, writes a one-time completion marker, and logs the committed affected-row count. Human rows, private proxy rows, and all other fields are preserved.
+  Validation: The first final CI run exposed the human browser fixture using HeadlessChrome; both pixel requests returned 200 and were correctly marked automated. The fixture now selects Playwright Desktop Chrome, with all eight browser pixel/reload cases passing. Production filtering is unchanged. Collection and historical stats/location HTTP regressions pass. Storage fixtures prove 1,103 corrected rows, rerun zero, shared human/tool identifiers, preserved evidence, update rollback, and completion-marker rollback. Independent architect review approved the change. Final `make ci` passed, including all 484 browser and API integration scenarios.
+  Files: `internal/model/traffic_user_agent.go`, `internal/storage/traffic_audit_migration.go`, `internal/storage/traffic_audit_migration_test.go`, `internal/storage/database.go`, `internal/api/visit_collector.go`, `internal/api/traffic_identity_transport_test.go`, `cmd/server/main.go`, `cmd/server/traffic_identity_test.go`, `Makefile`, `tests/package.json`, `tests/specs/traffic-integration.spec.js`, and `docs/integrations.md` / `docs/deployment.md` / `docs/development.md`.
+
+
 - [x] [B176] (P1) Restore anonymous pulls of the Pingwin integration image
   Evidence: PR #440 run `44591868868`, Integration 1/3 job `135799709915`, failed before tests when GHCR rejected the private Pingwin image pull as unauthorized. Matrix fail-fast cancelled the other jobs; the aggregate test gate then failed.
   Resolution: Changed Pingwin package visibility to public with the user's explicit approval. Documented public integration-image visibility as the anonymous-pull prerequisite. The CI workflow retains anonymous pulls.
@@ -3980,6 +3995,32 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I062] (P1) Exclude genuine internal clients from detailed traffic.
+  Resolve the client address through the trusted proxy boundary once. Exclude private, loopback, link-local, unspecified, and multicast addresses when analytics.exclude_private_ips is true.
+  Require the explicit setting, enable it in the production config, and allow intentional private traffic in the isolated integration config. Preserve pixel response, origin/input validation, and aggregate daily-count semantics.
+  Preserve historical proxy-IP rows because their original public client identity was not retained.
+  Validation: The collection regression reproduced internal-address inclusion before the fix. Focused HTTP coverage proves each excluded address class, disabled policy, uncached pixel responses, unresolved-address errors, and public report totals. Required, null, and nonboolean configuration cases pass, as do server-entrypoint tests for both policies. Independent architect review approved the result. Final `make ci` passed, including all 484 browser and API integration scenarios.
+  Files: `internal/api/public.go`, `internal/api/visit_collector.go`, `internal/api/traffic_identity_transport_test.go`, public-handler constructor test callers, `internal/serverconfig/config.go`, `internal/serverconfig/traffic_identity_test.go`, `cmd/server/main.go`, `cmd/server/traffic_identity_test.go`, config-audit/server fixtures, `configs/config.loopaware.yml`, `tests/configs/config.loopaware.yml`, `Makefile`, and `docs/setup.md` / `docs/api.md` / `docs/integrations.md`.
+
+- [ ] [I061] (P1) Label time-zone location estimates at their supported precision.
+  The tyemirov.net thirty-day export inspected on November 19 contains 105 page views and 60 unique visitor identifiers in the Los Angeles bucket.
+  Every row uses source timezone, signal America/Los_Angeles, and locale en-US. Every edge geo field is empty.
+  The city name comes from a fixed timezone anchor. Its score of 60 comes from locale and timezone country agreement.
+  Use time-zone or regional wording for this source and reserve city-level claims for city-level evidence. Preserve the recorded counts and source details.
+
+
+- [x] [I060] Show recorded numeric visitor totals on mobile Statistics.
+  Show the available unique visitor count across detailed sites in a mixed report.
+  Label the metric Recorded unique and show zero for sites and reports with no traffic.
+  Preserve daily request counts for daily-count sites.
+  The numeric tile sums the available detailed visitor counts when the API reports an incomplete combined visitor total.
+  Empty rows retain zero counts. The explanatory warning paragraph is removed.
+  Focused validation passed with `make mobile-check`, including 110 mobile flow checks.
+  Chromium previews verified a mixed report at 320 pixels in dark mode and zero traffic at 393 pixels in light mode.
+  Changed files include `mobile/App.tsx`, `mobile/scripts/test-app-flow.mjs`, `docs/dashboard.md`, and this tracker.
+  The regression reproduced the warning before the change. Final `make ci` passed with 110 mobile flow checks and 484 browser and API integration tests.
+
+
 - [x] [I059] Replace mobile location tags with a ranked table.
   Keep the compact map and show aligned unique visitor and page view counts.
   Select a row or bubble to show the location source and confidence inline. Keep non-mappable counts below the ranked locations.
@@ -6020,6 +6061,14 @@ Pull request delivery remains separate.
 
 
 ## Planning
+
+- [x] [P005] (P1) Trace public client addresses through the live traffic proxy chain.
+  The tyemirov.net thirty-day export inspected on November 19 contains 192 page views with only three distinct private network addresses in the IP field.
+  This prevents independent public-address analysis of location and visitor identifier churn.
+  Inspect the selected runtime's immediate proxy peer, trusted proxy configuration, and forwarded headers.
+  Identify the owning application or Gateway boundary and the required correction from live evidence.
+  Resolution: Live Docker network, container environment, and adapted Caddy route inspection confirmed the application-owned trusted CIDR mismatch. B178 owns the correction. Caddy has no upstream trusted-proxy override and uses standard forwarding-header replacement.
+
 
 - [x] [P004] (P1) Plan mobile avatar, site filter, and overview navigation changes
 
