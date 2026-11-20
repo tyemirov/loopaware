@@ -275,6 +275,11 @@ TRAFFIC_UNIQUE_TEST_FILTER ?= TestUniqueTraffic
 test-traffic-unique:
 	go run ./tools/testmonitor -- ./internal/api -run '$(TRAFFIC_UNIQUE_TEST_FILTER)' -count=1
 
+.PHONY: test-traffic-identity
+TRAFFIC_IDENTITY_PACKAGES ?= ./internal/api ./internal/storage ./internal/serverconfig ./cmd/configaudit ./cmd/server
+test-traffic-identity:
+	go run ./tools/testmonitor -- $(TRAFFIC_IDENTITY_PACKAGES) -run 'TestTrafficIdentity' -count=1
+
 .PHONY: test-portfolio-visible
 test-portfolio-visible:
 	go run ./tools/testmonitor -- ./internal/api -run 'TestPortfolioVisibleScope' -count=1
@@ -304,6 +309,10 @@ test-integration-browser-security:
 
 test-integration-proxy-security:
 	LOOPAWARE_TEST_SUITE=test:proxy-security ./tests/scripts/run-integration.sh
+
+.PHONY: test-integration-traffic
+test-integration-traffic:
+	LOOPAWARE_TEST_SUITE=test:traffic ./tests/scripts/run-integration.sh
 
 test-integration-all:
 	LOOPAWARE_TEST_SUITE=test:all ./tests/scripts/run-integration.sh
