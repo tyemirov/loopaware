@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"sort"
 	"time"
 
@@ -35,27 +34,34 @@ func buildAggregatePortfolio(ctx context.Context, database *gorm.DB, sites []mod
 		return portfolioTrafficReportData{}, err
 	}
 	var rows []struct {
-		SiteID, Day string
-		Count       int64
+		SiteID, Day    string
+		Count          int64
+		UniqueVisitors int64
 	}
-	err = database.WithContext(ctx).Raw(`SELECT site_id, DATE(occurred_at) AS day, COUNT(*) AS count
+	err = database.WithContext(ctx).Raw(`SELECT site_id, DATE(occurred_at) AS day, COUNT(*) AS count,
+		COUNT(DISTINCT CASE WHEN visitor_id <> '' THEN visitor_id END) AS unique_visitors
 		FROM site_visits WHERE site_id IN ? AND occurred_at >= ? AND is_bot = false GROUP BY site_id, DATE(occurred_at)
-		UNION ALL SELECT site_id, date AS day, count FROM site_visit_counts WHERE site_id IN ? AND date >= ?`,
+		UNION ALL SELECT site_id, date AS day, count, 0 AS unique_visitors FROM site_visit_counts WHERE site_id IN ? AND date >= ?`,
 		portfolioSiteIDs(detailedSites), start, aggregateIDs, start.Format(visitTrendDateFormat)).Scan(&rows).Error
 	if err != nil {
 		return portfolioTrafficReportData{}, err
 	}
-	report := portfolioTrafficReportData{CountsOnly: true, WindowDays: days, SiteCount: len(sites)}
+	report := portfolioTrafficReportData{CountsOnly: true, TimeResolution: portfolioTrafficTimeResolutionUTCDay, WindowDays: days, SiteCount: len(sites)}
+	for _, row := range detailedRows {
+		report.UniqueVisitors += row.UniqueVisitorCount
+	}
 	bySite := make(map[string]int64)
 	byDate := make(map[string]int64)
+	uniqueVisitorsByDate := make(map[string]int64)
 	for _, row := range rows {
 		bySite[row.SiteID] += row.Count
 		byDate[row.Day] += row.Count
+		uniqueVisitorsByDate[row.Day] += row.UniqueVisitors
 		report.PageViews += row.Count
 	}
 	for index := 0; index < days; index++ {
 		date := start.AddDate(0, 0, index).Format(visitTrendDateFormat)
-		report.Trend = append(report.Trend, VisitTrendPoint{Date: date, PageViews: byDate[date]})
+		report.Trend = append(report.Trend, VisitTrendPoint{Date: date, PageViews: byDate[date], UniqueVisitors: uniqueVisitorsByDate[date]})
 	}
 	report.Sites = append(report.Sites, detailedRows...)
 	for _, site := range sites {
@@ -70,34 +76,4 @@ func buildAggregatePortfolio(ctx context.Context, database *gorm.DB, sites []mod
 		return report.Sites[left].VisitCount > report.Sites[right].VisitCount
 	})
 	return report, nil
-}
-
-// MarshalJSON makes unavailable portfolio visitor totals explicit.
-func (response PortfolioTrafficReportResponse) MarshalJSON() ([]byte, error) {
-	type representation PortfolioTrafficReportResponse
-	if !response.CountsOnly {
-		return json.Marshal(representation(response))
-	}
-	points := make([]map[string]any, 0, len(response.Trend))
-	for _, point := range response.Trend {
-		points = append(points, map[string]any{"date": point.Date, "page_views": point.PageViews, "unique_visitors": nil})
-	}
-	return json.Marshal(struct {
-		representation
-		UniqueVisitors *int64           `json:"unique_visitor_count"`
-		Trend          []map[string]any `json:"trend"`
-		TimeResolution string           `json:"time_resolution"`
-	}{representation(response), nil, points, "utc_day"})
-}
-
-// MarshalJSON marks visitor metrics unavailable in a portfolio of daily totals.
-func (response PortfolioTrafficSiteRecord) MarshalJSON() ([]byte, error) {
-	type representation PortfolioTrafficSiteRecord
-	if !response.CountsOnly {
-		return json.Marshal(representation(response))
-	}
-	return json.Marshal(struct {
-		representation
-		UniqueVisitors *int64 `json:"unique_visitor_count"`
-	}{representation(response), nil})
 }

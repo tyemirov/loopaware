@@ -20,11 +20,12 @@ import (
 )
 
 const (
-	portfolioTrafficReportScopeOwned   = "owned"
-	portfolioTrafficReportScopeVisible = "visible"
-	portfolioTrafficReportDefaultDays  = 30
-	portfolioTrafficReportMaxDays      = 30
-	portfolioTrafficReportDefaultName  = "All sites traffic"
+	portfolioTrafficReportScopeOwned     = "owned"
+	portfolioTrafficReportScopeVisible   = "visible"
+	portfolioTrafficReportDefaultDays    = 30
+	portfolioTrafficReportMaxDays        = 30
+	portfolioTrafficReportDefaultName    = "All sites traffic"
+	portfolioTrafficTimeResolutionUTCDay = "utc_day"
 
 	errorValueInvalidPortfolioTrafficReport      = "invalid_portfolio_traffic_report"
 	errorValueUnknownPortfolioTrafficReport      = "unknown_portfolio_traffic_report"
@@ -38,6 +39,7 @@ var portfolioTrafficReportEmailTemplate = template.Must(template.New("portfolio_
 
 type PortfolioTrafficReportResponse struct {
 	CountsOnly         bool                         `json:"counts_only"`
+	TimeResolution     string                       `json:"time_resolution,omitempty"`
 	ReportID           string                       `json:"report_id"`
 	ReportName         string                       `json:"report_name"`
 	Scope              string                       `json:"scope"`
@@ -76,6 +78,7 @@ type portfolioTrafficReportDefinitionRequest struct {
 
 type portfolioTrafficReportData struct {
 	CountsOnly     bool `json:"counts_only"`
+	TimeResolution string
 	WindowDays     int
 	SiteCount      int
 	PageViews      int64
@@ -155,6 +158,7 @@ func (handlers *TrafficReportHandlers) GetPortfolioReport(context *gin.Context) 
 
 	context.JSON(http.StatusOK, PortfolioTrafficReportResponse{
 		CountsOnly:         report.CountsOnly,
+		TimeResolution:     report.TimeResolution,
 		ReportID:           reportDefinition.ID,
 		ReportName:         reportDefinition.Name,
 		Scope:              scope,
