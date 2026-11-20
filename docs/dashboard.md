@@ -27,6 +27,10 @@ A background scheduler refreshes site favicons and sends live dashboard notifica
 
 The dashboard automatically redirects unauthenticated visitors to `/login`.
 
+On desktop, the Sites panel fills the visible space between the header and footer with equal margins.
+The site list scrolls inside the panel, which stays visible while the selected site's content scrolls.
+On narrow screens, Sites appears above the site details.
+
 ## Mobile site cards
 
 Each site card shows its collected favicon to the left of the name.
@@ -63,6 +67,11 @@ The automatic schedule write completes before the dashboard opens.
 
 The report library keeps custom reports and email schedules.
 The header icon provides navigation between the dashboard and reports.
+
+The preview plots the full daily trend with labeled Date (UTC) and count axes.
+Reports that include daily-count sites show recorded requests without a unique-visitor series.
+Their site rows show `Not collected (daily counts)` for unique visitors because this profile stores no visitor identifiers.
+Detailed sites retain their recorded unique visitor counts in the same table.
 
 ## Mobile statistics
 
