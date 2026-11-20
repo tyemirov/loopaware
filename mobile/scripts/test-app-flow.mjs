@@ -231,8 +231,8 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
   assert(!app.buttonLabels().some(label => /Back to .*dashboard/.test(label)));
   assert.match(app.text(), /All-sites traffic/);
   assert.match(app.text(), /Other site 23\s+visits ·\s+5\s+unique/);
-  assert.match(app.text(), /Unique visitors are not collected for daily-count sites/);
-  assert.match(app.text(), /Total unavailable: includes daily-count sites/);
+  assert.match(app.text(), /Visitors 5 Recorded unique/);
+  assert.doesNotMatch(app.text(), /Not collected|Total unavailable|Unique visitors are not collected/);
   assert.match(app.text(), /Aggregate site 12 requests · Daily counts only/);
   assert.doesNotMatch(app.text(), /Selected-site report/);
   assert(app.requestURLs.some(url => new URL(url).searchParams.get("scope") === "visible"));
@@ -245,6 +245,53 @@ for (const platform of /** @type {const} */ (["ios", "android"])) await scenario
   await app.press("Reports");
   assert.match(app.text(), /Selected-site report/);
   assert.doesNotMatch(app.text(), /All-sites traffic/);
+});
+
+
+/** @type {import("../src/types").PortfolioTrafficSite[]} */
+const recordedStatisticsSites = [
+  { site_id: "aggregate-site", site_name: "Daily requests", visit_count: 12, unique_visitor_count: null },
+  { site_id: "other-site", site_name: "Detailed traffic", visit_count: 23, unique_visitor_count: 5 },
+  { site_id: "third-site", site_name: "More traffic", visit_count: 8, unique_visitor_count: 3 },
+  { site_id: "empty-detailed", site_name: "Empty detailed", visit_count: 0, unique_visitor_count: 0 },
+  { site_id: "empty-daily", site_name: "Empty daily", visit_count: 0, unique_visitor_count: null },
+];
+/** @type {Array<[string, import("../src/types").VisibleTrafficReport, number]>} */
+const recordedStatisticsReports = [
+  ["mixed", { scope: "visible", site_count: 5, visit_count: 43, unique_visitor_count: null, sites: recordedStatisticsSites }, 8],
+  ["detailed", { scope: "visible", site_count: 3, visit_count: 31, unique_visitor_count: 8, sites: recordedStatisticsSites.filter(site => site.unique_visitor_count !== null) }, 8],
+  ["daily", { scope: "visible", site_count: 2, visit_count: 12, unique_visitor_count: null, sites: recordedStatisticsSites.filter(site => site.unique_visitor_count === null) }, 0],
+  ["zero traffic", { scope: "visible", site_count: 2, visit_count: 0, unique_visitor_count: null, sites: recordedStatisticsSites.filter(site => site.visit_count === 0) }, 0],
+  ["no sites", { scope: "visible", site_count: 0, visit_count: 0, unique_visitor_count: 0, sites: [] }, 0],
+];
+for (const platform of /** @type {const} */ (["ios", "android"])) {
+  for (const [profile, report, visitors] of recordedStatisticsReports) await scenario(`statistics shows recorded totals for ${profile} reports on ${platform}`, {
+    initialSession: true, platform, portfolioReport: report,
+  }, async app => {
+    await app.press("Statistics");
+    assert.match(app.text(), new RegExp(`Sites ${report.site_count} Included Visits ${report.visit_count} Last 30 days Visitors ${visitors} Recorded unique`));
+    assert.doesNotMatch(app.text(), /Unavailable|Not collected|Total unavailable|Unique visitors are not collected/);
+    for (const row of report.sites) {
+      const expected = row.unique_visitor_count === null
+        ? `${row.site_name} ${row.visit_count} requests · Daily counts only`
+        : `${row.site_name} ${row.visit_count} visits · ${row.unique_visitor_count} unique`;
+      assert(app.buttonText(`Open site ${row.site_name}`).includes(expected));
+    }
+    if (report.sites.length === 0) assert.match(app.text(), /No accessible sites/);
+  });
+}
+const updatingStatistics = { initialSession: true, portfolioReport: recordedStatisticsReports[0][1] };
+await scenario("statistics updates the collected visitor total with the site rows", updatingStatistics, async app => {
+  await app.press("Statistics");
+  assert.match(app.text(), /Visitors 8 Recorded unique/);
+  updatingStatistics.portfolioReport = {
+    ...updatingStatistics.portfolioReport,
+    visit_count: 45,
+    sites: recordedStatisticsSites.map(site => site.site_id === "empty-detailed" ? { ...site, visit_count: 2, unique_visitor_count: 1 } : site),
+  };
+  await app.synchronizeStatistics();
+  assert.match(app.text(), /Visits 45 Last 30 days Visitors 9 Recorded unique/);
+  assert(app.buttonText("Open site Empty detailed").includes("2 visits · 1 unique"));
 });
 
 for (const platform of /** @type {const} */ (["ios", "android"])) await scenario(`statistics account settings keeps dashboard selection on ${platform}`, {
@@ -897,7 +944,7 @@ console.log(`${scenarioCount} mobile app flow checks passed`);
 
 /**
  * @param {string} name
- * @param {{ initialSession: boolean, fontScale?: number, locations?: import("../src/types").LocationPoint[], uniqueTraffic?: boolean, invalidLocationMetadata?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
+ * @param {{ initialSession: boolean, portfolioReport?: import("../src/types").VisibleTrafficReport, fontScale?: number, locations?: import("../src/types").LocationPoint[], uniqueTraffic?: boolean, invalidLocationMetadata?: boolean, platform?: "ios"|"android", logoutFailure?: boolean, multipleSites?: boolean, siteList?: () => Array<typeof site>, intervalCounts?: Record<string,number>, faviconFailure?: boolean, faviconFormat?: "png" | "svg" | "ico", emptySites?: boolean, avatarMode?: "refresh" | "expired" | "failed" | "invalid" | "oversized" | "conversion" | "conversion-throw" | "octet-stream", failFirstWrite?: boolean, account?: import("../src/types").Account, systemTheme?: "light" | "dark", storedTheme?: string, storageFailure?: boolean, readFailure?: boolean, holdWrites?: boolean, trafficProfile?: "detailed" | "aggregate", trend?: (siteID: string, interval: string) => TrendPoint[], recentVisits?: import("../src/types").VisitLogEntry[], dashboardFailure?: boolean, rejectLogin?: boolean, sitesFailure?: boolean, deferDashboard?: boolean, deferSites?: boolean, portfolioFailure?: boolean, deferPortfolio?: boolean }} options
  * @param {(app: { signIn: (waitFor?: "idle" | "heldResponse") => Promise<void>, startPendingSignIn: () => Promise<void>, completeSignIn: () => Promise<void>, expectSignInPending: () => void, press: (label: string, waitFor?: "idle" | "heldResponse", touch?: {locationX:number,locationY:number}) => Promise<void>, refresh: () => Promise<void>, release: () => Promise<void>, expectSignedIn: () => void, text: () => string, requests: string[], requestURLs: string[], buttonLabels: () => string[], mapGeometry: () => {width:number|string,aspectRatio:number,centered:boolean}, mapMarkerSizes: () => number[], layoutMap: (width:number) => Promise<void>, failLocationMap: () => Promise<void>, locationMap: () => {uri:string,svg:string,label:string,aspectRatio:number}|null, homeIcon: () => number | undefined, statisticsBesideAvatar: () => boolean, synchronizeStatistics: () => Promise<void>, type: (label:string,value:string) => Promise<void>, inputValue: (label:string) => string|null, expanded: (label:string) => boolean, keyboardDismissals: () => number, lastInterval: () => string, background: () => string, selected: (label:string) => boolean, storedTheme: () => string | undefined, system: (scheme: "light" | "dark", foreground?: boolean) => Promise<void>, remount: () => Promise<void>, recoverPhoto: () => void, holdNextPhoto: () => void, releasePhoto: () => Promise<void>, recoverStorage: () => void, releaseWrite: () => Promise<void>, trend: () => string[][], graph: () => {yLabel:string, topMargin:number, plotHeight:number, dateMargin:number, segments: import("react-test-renderer").ReactTestInstance[], points: import("react-test-renderer").ReactTestInstance[]}, layoutGraph: (width:number) => Promise<void>, bar: (label:string) => {value:string,width:string}|null, waitFor: (predicate: () => boolean) => Promise<void>, imageUris: () => string[], siteIcon: (label: string) => string | null, siteIconDecorative: (label: string) => boolean, siteIconError: (label: string) => Promise<void>, siteFilterInline: () => boolean, avatarEvent: (event: "load" | "error") => Promise<void>, avatarCallback: (event: "load" | "error") => () => void, setAccount: (account: import("../src/types").Account) => void, back: () => Promise<void>, buttonText: (label:string) => string, focused: () => string, nativeAppearance: () => string, statusBarStyle: () => string }) => Promise<void>} check
  */
 async function scenario(name, options, check) {
@@ -1010,7 +1057,7 @@ async function scenario(name, options, check) {
       case "/api/reports/traffic/portfolio/reports": payload = { reports: [], available_sites: [] }; break;
       case "/api/reports/traffic/portfolio":
         status = options.portfolioFailure ? 500 : 200;
-        payload = options.portfolioFailure ? { error: "query_failed" } : { scope: "visible", site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: options.emptySites ? [] : [
+        payload = options.portfolioFailure ? { error: "query_failed" } : options.portfolioReport ?? { scope: "visible", site_count: 2, visit_count: requests.filter(value => value === path).length === 1 ? 35 : 58, unique_visitor_count: null, trend: [], sites: options.emptySites ? [] : [
           {site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:null},
           {site_id:"other-site",site_name:"Other site",visit_count:23,unique_visitor_count:5},
         ] }; break;

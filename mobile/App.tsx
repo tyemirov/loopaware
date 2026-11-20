@@ -1079,9 +1079,12 @@ function StatisticsScreen(props: { apiClient: LoopAwareApiClient; header: React.
         <StatGrid items={[
           { label: "Sites", value: formatCount(report.site_count), detail: "Included" },
           { label: "Visits", value: formatCount(report.visit_count), detail: "Last 30 days" },
-          { label: "Visitors", value: report.unique_visitor_count === null ? "Not collected for all sites" : formatCount(report.unique_visitor_count), detail: report.unique_visitor_count === null ? "Total unavailable: includes daily-count sites" : "Unique" },
+          {
+            label: "Visitors",
+            value: formatCount(report.unique_visitor_count ?? report.sites.reduce((total, site) => total + (site.unique_visitor_count ?? 0), 0)),
+            detail: "Recorded unique",
+          },
         ]} />
-        {report.unique_visitor_count === null ? <Text style={styles.helperText}>Unique visitors are not collected for daily-count sites. Detailed sites show their own counts below.</Text> : null}
         {report.sites.length ? report.sites.map(site => <Pressable key={site.site_id}
           accessibilityRole="button" accessibilityLabel={`Open site ${site.site_name}`}
           accessibilityHint="Open this site's overview" disabled={openingSite !== null}
