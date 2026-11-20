@@ -300,14 +300,14 @@ export type PortfolioTrafficSite = {
   site_id: string;
   site_name: string;
   visit_count: number;
-  unique_visitor_count: number | null;
+  unique_visitor_count: number;
 };
 
 export type VisibleTrafficReport = {
   scope: "visible";
   site_count: number;
   visit_count: number;
-  unique_visitor_count: number | null;
+  unique_visitor_count: number;
   sites: PortfolioTrafficSite[];
 };
 

@@ -44,10 +44,15 @@ const site = {
   access_role: "admin",
 };
 
-const validVisibleReport = { scope:"visible",site_count:1,visit_count:12,unique_visitor_count:null,sites:[{site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:null}] };
-for (const report of [null, {}, {...validVisibleReport,scope:"owned"}, {...validVisibleReport,site_count:-1}, {...validVisibleReport,visit_count:"12"}, {...validVisibleReport,unique_visitor_count:-1}, {...validVisibleReport,sites:[null]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_id:""}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_name:12}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],visit_count:NaN}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],unique_visitor_count:"5"}]}]) {
+const validVisibleReport = { scope:"visible",site_count:1,visit_count:12,unique_visitor_count:0,sites:[{site_id:site.id,site_name:site.name,visit_count:12,unique_visitor_count:0}] };
+for (const report of [null, {}, {...validVisibleReport,scope:"owned"}, {...validVisibleReport,site_count:-1}, {...validVisibleReport,visit_count:"12"}, {...validVisibleReport,unique_visitor_count:-1}, {...validVisibleReport,unique_visitor_count:null}, {...validVisibleReport,sites:[null]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_id:""}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],site_name:12}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],visit_count:NaN}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],unique_visitor_count:"5"}]}, {...validVisibleReport,sites:[{...validVisibleReport.sites[0],unique_visitor_count:null}]}]) {
   const client = new LoopAwareApiClient({apiBaseUrl:"https://api.example",tauthBaseUrl:"https://auth.example",tauthTenantId:"loopaware"}, async () => new Response(JSON.stringify(report), {status:200,headers:{"Content-Type":"application/json"}}));
   await assert.rejects(client.visibleTrafficReport(), /visible traffic report|traffic count/);
+}
+for (const uniqueVisitors of [0, 5]) {
+  const report = {...validVisibleReport, unique_visitor_count:uniqueVisitors, sites:[{...validVisibleReport.sites[0],unique_visitor_count:uniqueVisitors}]};
+  const client = new LoopAwareApiClient({apiBaseUrl:"https://api.example",tauthBaseUrl:"https://auth.example",tauthTenantId:"loopaware"}, async () => new Response(JSON.stringify(report), {status:200,headers:{"Content-Type":"application/json"}}));
+  assert.deepEqual(await client.visibleTrafficReport(), report);
 }
 
 const basePayloads = {

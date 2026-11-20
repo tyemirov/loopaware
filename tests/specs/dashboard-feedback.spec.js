@@ -24,6 +24,13 @@ async function createDashboardFeedback(site, payload) {
   return createWidgetTestFeedback(config, buildAdminCookie(), site, payload);
 }
 
+async function openFeedbackSite(page, site) {
+  await openDashboard(page, config, adminUser);
+  await selectSite(page, site.id);
+  await page.getByRole('tab', { name: 'Feedback', exact: true }).click();
+  await expect(page.locator('[data-dashboard-card="feedback"]')).toBeVisible();
+}
+
 let publicFeedbackClientIPCounter = 1;
 async function createPublicFeedback(site, payload) {
   const clientIP = `10.6.0.${publicFeedbackClientIPCounter}`;
@@ -51,13 +58,13 @@ async function createPublicFeedback(site, payload) {
 test('feedback table prompts for site selection', async ({ page }) => {
   await openDashboard(page, config, adminUser, { allowEmptySites: true });
   await page.locator('#new-site-button').click();
+  await page.getByRole('tab', { name: 'Feedback', exact: true }).click();
   await expect(page.locator('#feedback-table-body')).toContainText('Select a site to see details');
 });
 
 test('feedback table shows empty state after selection', async ({ page }) => {
   const site = await createFeedbackSite();
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('No feedback yet');
 });
@@ -66,8 +73,7 @@ test('feedback table lists messages', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha feedback' });
   await createDashboardFeedback(site, { contact: 'beta@example.com', message: 'Beta feedback' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Alpha feedback');
   await expect(page.locator('#feedback-table-body')).toContainText('Beta feedback');
@@ -76,8 +82,7 @@ test('feedback table lists messages', async ({ page }) => {
 test('feedback table lists sentiment for sentiment-only feedback', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'alpha@example.com', message: '', sentiment: 'happy' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Happy');
   await expect(page.locator('#feedback-table-body')).toContainText('🙂');
@@ -110,8 +115,7 @@ test('feedback table shows mobile screen context', async ({ page }) => {
       step: 'payment'
     }
   });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Payment form is unclear');
   await expect(page.locator('#feedback-table-body')).toContainText('Mobile · Android · Checkout');
@@ -127,8 +131,7 @@ test('feedback table shows and searches web source pages', async ({ page }) => {
     message: 'The card form is confusing',
     sourceUrl: sourceURL
   });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('The card form is confusing');
   await expect(page.locator('#feedback-table-body')).toContainText(`Page: ${sourceURL}`);
@@ -142,8 +145,7 @@ test('feedback count badge reflects totals', async ({ page }) => {
   await createDashboardFeedback(site, { contact: 'one@example.com', message: 'One' });
   await createDashboardFeedback(site, { contact: 'two@example.com', message: 'Two' });
   await createDashboardFeedback(site, { contact: 'three@example.com', message: 'Three' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-count')).toContainText('3');
 });
@@ -152,8 +154,7 @@ test('feedback search filters messages', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha search' });
   await createDashboardFeedback(site, { contact: 'beta@example.com', message: 'Beta search' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Alpha search');
   await expect(page.locator('#feedback-table-body')).toContainText('Beta search');
@@ -167,8 +168,7 @@ test('feedback search filters by sentiment label', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'happy@example.com', message: '', sentiment: 'happy' });
   await createDashboardFeedback(site, { contact: 'sad@example.com', message: '', sentiment: 'sad' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#feedback-table-body')).toContainText('Happy');
   await expect(page.locator('#feedback-table-body')).toContainText('Sad');
   await page.locator('#messages-search-toggle-button').click();
@@ -180,8 +180,7 @@ test('feedback search filters by sentiment label', async ({ page }) => {
 test('feedback search shows empty state', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'alpha@example.com', message: 'Alpha search' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Alpha search');
   await page.locator('#messages-search-toggle-button').click();
@@ -192,8 +191,7 @@ test('feedback search shows empty state', async ({ page }) => {
 test('refresh button reports success', async ({ page }) => {
   const site = await createFeedbackSite();
   await createDashboardFeedback(site, { contact: 'refresh@example.com', message: 'Refresh me' });
-  await openDashboard(page, config, adminUser);
-  await selectSite(page, site.id);
+  await openFeedbackSite(page, site);
   await expect(page.locator('#edit-site-name')).toHaveValue(site.name);
   await expect(page.locator('#feedback-table-body')).toContainText('Refresh me');
   await page.locator('#refresh-messages-button').click();
@@ -202,6 +200,7 @@ test('refresh button reports success', async ({ page }) => {
 
 test('feedback search toggle reveals input', async ({ page }) => {
   await openDashboard(page, config, adminUser);
+  await page.getByRole('tab', { name: 'Feedback', exact: true }).click();
   await page.locator('#messages-search-toggle-button').click();
   await expect(page.locator('#messages-search-toggle-button')).toHaveAttribute('aria-expanded', 'true');
   await expect(page.locator('#messages-search-container')).toBeVisible();

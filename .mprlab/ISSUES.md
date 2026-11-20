@@ -4002,6 +4002,17 @@ Pull request delivery remains separate.
 
 ## Improvements
 
+- [x] [I065] Show recorded portfolio visits and unique visitors with graph hover values.
+  Keep the Visits and Unique legend and numeric totals. Sum recorded detailed-site unique visitors, with daily-count sites contributing zero to portfolio totals, daily trends, and site rows. Show the exact date and counts when hovering over the plot.
+  Update the canonical report API, repository-owned consumers, documentation, and public contract tests together. Keep individual daily-count collection semantics and authorization intact.
+  Validation: Pre- and post-implementation architect reviews approved. Focused HTTP/email regressions, all 371 browser regressions, and mobile boundary/type checks plus 110 iOS/Android app-flow scenarios pass. Screenshot review found a narrow-screen tooltip wrapping issue; its new regression reproduced the defect before the width fix. All seven graph cases pass again and final screenshots confirm readable values. Final JavaScript checks and `make ci` pass, including all 496 browser and API integration scenarios.
+  Files: `web/app/index.html`, `internal/api/aggregate_portfolio.go`, `internal/api/portfolio_traffic_report.go`, `internal/api/templates/portfolio_traffic_report_email.txt`, `internal/api/aggregate_reports_test.go`, `internal/api/portfolio_traffic_report_test.go`, `internal/api/portfolio_visible_transport_test.go`, `mobile/App.tsx`, `mobile/src/api.ts`, `mobile/src/types.ts`, `mobile/scripts/test-api-boundaries.mjs`, `mobile/scripts/test-app-flow.mjs`, `tests/specs/dashboard-report-trend.spec.js`, `tests/package.json`, `docs/api.md`, `docs/dashboard.md`, and `docs/integrations.md`.
+
+- [x] [I066] Open sites on the first Traffic tab.
+  Order tabs as Traffic, Feedback, Subscriptions, Health, LA Sentry, and authorized Admin. Select Traffic when a site opens, while preserving explicit tab choices during background updates and a return from Reports to the same site.
+  Validation: All three focused browser cases pass at desktop and phone widths, covering initial opening, site changes, background updates, and report return. All 371 browser regressions pass, including role visibility and existing feedback/widget flows. JavaScript checks and screenshot review pass. Final `make ci` passes, including all 496 browser and API integration scenarios.
+  Files: `web/app/index.html`, `tests/specs/dashboard-navigation.spec.js`, `tests/specs/dashboard-allowed-origins.spec.js`, `tests/specs/dashboard-feedback.spec.js`, `tests/specs/dashboard-site-actions.spec.js`, `tests/specs/dashboard-snippets.spec.js`, `tests/specs/dashboard-surface-parity.spec.js`, `tests/package.json`, and `docs/dashboard.md`.
+
 - [x] [I063] Fill the desktop Sites panel between the header and footer.
   Keep equal header and footer margins, scroll the list inside the panel, and adapt to viewport and shell size changes. Preserve the stacked layout on narrow screens.
   Implemented a sticky desktop panel sized from the viewport and measured header/footer heights. Kept complete selected rows visible at fractional scroll boundaries after architect review.
