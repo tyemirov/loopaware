@@ -11,17 +11,20 @@ import { collectVisit, fetchPortfolioTrafficReportSchedule, savePortfolioTraffic
 const config = resolveTestConfig();
 const admin = buildAdminUser(config);
 
-test('mobile world map image decodes at phone width with escaped Unicode labels', async ({ page }, testInfo) => {
+test('mobile world map displays one escaped Unicode selection label at phone width', async ({ page }, testInfo) => {
   const compile = name => stripTypeScriptTypes(readFileSync(new URL(`../../mobile/src/${name}.ts`, import.meta.url), 'utf8'));
   const moduleURL = source => `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
   const worldURL = moduleURL(compile('location-world'));
   const { locationMapImage } = await import(moduleURL(compile('location-map').replace('"./location-world"', JSON.stringify(worldURL))));
   const location = {label: '東京 & <West> 🌍', latitude: 35.68, longitude: 139.65, unique_visitor_count: 8, visit_count: 12};
   const colors = {surface:'#fff',surfaceAlt:'#eef3f1',muted:'#65726e',border:'#d8e0dd',teal:'#157f78',tealDark:'#0e5e59',ink:'#17211f'};
-  const uri = locationMapImage([location, {...location, label:"12345678901234🌍long"}], colors);
+  const width = 375;
+  const uri = locationMapImage([location, {...location, label:"12345678901234🌍long"}], colors, width, location);
   expect(uri).toMatch(/^data:image\/svg\+xml;base64,/);
-  expect(Buffer.from(uri.split(',')[1], 'base64').toString('utf8')).toContain('東京 &amp; &lt;West&gt; 🌍');
-  await page.setViewportSize({width:375,height:600});
+  const svg = Buffer.from(uri.split(',')[1], 'base64').toString('utf8');
+  const labels = [...svg.matchAll(/class="traffic-map__bubble-label"[^>]*>([^<]+)</g)];
+  expect(labels.map(match => match[1])).toEqual(['東京 &amp; &lt;West&gt; 🌍']);
+  await page.setViewportSize({width,height:600});
   await page.setContent(`<img alt="Mobile world map" style="width:100%;aspect-ratio:2.4" src="${uri}">`);
   await expect.poll(() => page.getByAltText('Mobile world map').evaluate(image => /** @type {HTMLImageElement} */ (image).naturalWidth)).toBe(720);
   await expect(page.getByAltText('Mobile world map')).toBeVisible();
