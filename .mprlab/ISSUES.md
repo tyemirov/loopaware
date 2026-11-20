@@ -38,6 +38,13 @@ Pull request delivery remains separate.
 
 ## BugFixes
 
+- [x] [B179] (P1) Make dashboard label tests independent of shard order.
+  Evidence: PR #442 run `44814058618`, Integration 2/3 job `136557693785`, times out waiting for a selected site in its first label test. The failing spec created no site and depended on data from earlier specs in the unsharded suite. Matrix fail-fast cancels the other jobs, then the aggregate test gate fails.
+  Requirements: Create the label spec's required site through the public API and verify it against a fresh integration database.
+  Resolution: The label spec creates one site with a unique origin through the real API in `beforeAll`. Added a focused label-only integration command.
+  Validation: The label-only run against a fresh database reproduced the same 90-second selected-site timeout before the fix. `LOOPAWARE_TEST_SUITE=test:dashboard-labels make test-integration` now passes all 73 cases, including new-site mode and the selected-site Admin controls. Focused diff review and `git diff --check` pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `tests/specs/dashboard-labels.spec.js`, `tests/package.json`.
+
 - [x] [B178] (P1) Trust the actual owned proxy network for detailed visitor addresses.
   Evidence: Caddy is 192.168.96.5 on mprlab-runtime 192.168.96.0/20, while the live LoopAware service receives TRUSTED_PROXY_CIDR=172.19.0.0/16. Forwarding headers are stripped and all 192 inspected rows store private proxy addresses.
   Resolution: The application manifest now trusts 192.168.96.0/20. Existing untrusted forwarding and edge geo rejection remains enforced. The separate ingress rate-limit exemption list is unchanged.
@@ -3994,6 +4001,18 @@ Pull request delivery remains separate.
   `web/terms/index.html`, and `web/app/index.html`.
 
 ## Improvements
+
+- [x] [I063] Fill the desktop Sites panel between the header and footer.
+  Keep equal header and footer margins, scroll the list inside the panel, and adapt to viewport and shell size changes. Preserve the stacked layout on narrow screens.
+  Implemented a sticky desktop panel sized from the viewport and measured header/footer heights. Kept complete selected rows visible at fractional scroll boundaries after architect review.
+  Validation: The browser regression failed before implementation. All 56 focused dashboard scenarios pass, including shell resizing, search, list scrolling, creation, deletion, and narrow screens. `make lint-js` and screenshot review pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `web/app/index.html`, `tests/specs/dashboard-layout.spec.js`, `tests/package.json`, `docs/dashboard.md`.
+
+- [x] [I064] Show report request trends on a graph with labeled axes.
+  Replace the daily-count and mixed-profile report bars with the shared chronological graph. Label dates in UTC and the recorded-request scale. Explain the daily-count unique-visitor state.
+  The shared graph now plots every date, spaces sparse dates by elapsed UTC time, and shows markers with exact date/count descriptions. Daily-count and mixed reports plot requests; detailed reports retain visits and unique visitors. Daily-count table cells show `Not collected (daily counts)`.
+  Validation: The missing-graph browser regression failed before implementation. All 56 focused dashboard scenarios pass, covering aggregate and mixed reports, zero counts, a single day, sparse dates, and existing detailed graphs. `make lint-js` and graph screenshot review pass. Final `make ci` passed with all 491 browser and API integration scenarios.
+  Files: `web/app/index.html`, `tests/specs/dashboard-report-trend.spec.js`, `tests/specs/dashboard-traffic.spec.js`, `tests/package.json`, `docs/dashboard.md`.
 
 - [x] [I062] (P1) Exclude genuine internal clients from detailed traffic.
   Resolve the client address through the trusted proxy boundary once. Exclude private, loopback, link-local, unspecified, and multicast addresses when analytics.exclude_private_ips is true.

@@ -27,6 +27,37 @@
       })();
     </script>
     <style>
+      .dashboard-container {
+        --dashboard-panel-gap: 1.5rem;
+        padding-block: var(--dashboard-panel-gap);
+      }
+      #sites-list {
+        max-height: 20rem;
+      }
+      @media (min-width: 992px) {
+        .sites-panel {
+          position: sticky;
+          top: calc(var(--dashboard-header-height) + var(--dashboard-panel-gap));
+          height: calc(100dvh - var(--dashboard-header-height) - var(--dashboard-footer-height) - 2 * var(--dashboard-panel-gap));
+        }
+        .sites-panel > .card-header {
+          flex-shrink: 0;
+        }
+        .sites-panel > .card-body {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+        }
+        .sites-panel #sites-list {
+          flex: 1;
+          min-height: 0;
+          max-height: none;
+          padding-bottom: 1px;
+        }
+        .sites-panel #sites-list > [data-site-id] {
+          scroll-margin-block: 1px;
+        }
+      }
       .widget-bottom-offset-input {
         flex: 0 0 auto;
         width: 6rem;
@@ -386,11 +417,11 @@
 </mpr-header>
 
     <main class="flex-grow-1">
-      <div class="container py-4">
+      <div class="container dashboard-container">
         
         <div id="site-dashboard-view" class="row g-4">
           <div class="col-lg-4">
-            <div class="card shadow-sm">
+            <div class="card shadow-sm sites-panel">
               <div class="card-header">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <div class="d-flex align-items-center gap-2">
@@ -411,7 +442,7 @@
                 </div>
               </div>
               <div class="card-body p-0">
-                <div id="sites-list" class="list-group list-group-flush overflow-auto" style="max-height: 20rem;"></div>
+                <div id="sites-list" class="list-group list-group-flush overflow-auto"></div>
                 <p class="text-muted small m-3" id="empty-sites-message">No sites available yet.</p>
               </div>
             </div>
@@ -1872,6 +1903,21 @@
         var validationFocusModePrompt = 'prompt';
         var validationFocusModeSilent = 'silent';
         var footerElement = document.getElementById(elementIds.footer);
+        Promise.all([customElements.whenDefined('mpr-header'), customElements.whenDefined('mpr-footer')]).then(function() {
+          var dashboardHeaderElement = document.querySelector('.dashboard-header');
+          var dashboardFooterRoot = footerElement.querySelector('footer');
+          var sitesPanelLayoutObserver = new ResizeObserver(function() {
+            document.body.style.setProperty('--dashboard-header-height', dashboardHeaderElement.getBoundingClientRect().height + 'px');
+            document.body.style.setProperty('--dashboard-footer-height', dashboardFooterRoot.getBoundingClientRect().height + 'px');
+          });
+          function observeDashboardShell() {
+            sitesPanelLayoutObserver.observe(dashboardHeaderElement, { box: 'border-box' });
+            sitesPanelLayoutObserver.observe(dashboardFooterRoot, { box: 'border-box' });
+          }
+          observeDashboardShell();
+          window.addEventListener('pagehide', function() { sitesPanelLayoutObserver.disconnect(); });
+          window.addEventListener('pageshow', observeDashboardShell);
+        });
         var footerThemeClasses = parsedConfig.footer_theme_classes || {};
         var tableThemeClasses = parsedConfig.table_theme_classes || {};
         var landingPath = '/login';
@@ -6526,15 +6572,14 @@
             return;
           }
           var entries = Array.isArray(points) ? points : [];
-          if (entries.some(function(point) { return point.unique_visitors === null; })) {
-            renderBarChart(container, entries, { labelKey: 'date', countKey: 'page_views', emptyMessage: 'No daily counts yet.' });
-            return;
-          }
+          var hasUniqueVisitors = !entries.some(function(point) { return point.unique_visitors === null; });
+          var requestLabel = container === allSitesTrafficTrendChart ? 'Recorded requests' : 'Requests';
+          var primarySeriesLabel = hasUniqueVisitors ? 'Visits' : requestLabel;
           var maximum = entries.reduce(function(currentMaximum, point) {
             return Math.max(currentMaximum, Number(point && point.page_views) || 0, Number(point && point.unique_visitors) || 0);
-          }, 0);
+          }, 1);
           container.innerHTML = '';
-          if (entries.length === 0 || maximum <= 0) {
+          if (entries.length === 0) {
             renderChartMessage(container, 'No trend data yet.');
             return;
           }
@@ -6544,12 +6589,12 @@
           var leftPadding = 84;
           var rightPadding = 24;
           var topPadding = 32;
-          var bottomPadding = 28;
+          var bottomPadding = 46;
           var xAxisLabelOffset = 18;
           var xAxisTickLength = 5;
           var usableWidth = chartWidth - leftPadding - rightPadding;
           var usableHeight = chartHeight - topPadding - bottomPadding;
-          var axisUnitLabel = 'Visits / visitors';
+          var axisUnitLabel = hasUniqueVisitors ? 'Visits / visitors' : requestLabel;
           var svg = document.createElementNS(namespace, 'svg');
           svg.setAttribute('viewBox', '0 0 ' + chartWidth + ' ' + chartHeight);
           svg.setAttribute('role', 'img');
@@ -6606,8 +6651,12 @@
           }
 
           function xPositionForPointIndex(pointIndex) {
-            var denominator = Math.max(entries.length - 1, 1);
-            return leftPadding + (usableWidth * pointIndex / denominator);
+            var start = Date.parse(entries[0].date);
+            var end = Date.parse(entries[entries.length - 1].date);
+            if (start === end) {
+              return leftPadding + usableWidth / 2;
+            }
+            return leftPadding + usableWidth * (Date.parse(entries[pointIndex].date) - start) / (end - start);
           }
 
           function trendDateTicks() {
@@ -6636,8 +6685,9 @@
             }).join(' ');
           }
 
-          svg.setAttribute('aria-label', 'Traffic trend, time axis ' + formatTrendDateLabel(entries[0].date) + ' to ' + formatTrendDateLabel(entries[entries.length - 1].date) + ', scale 0 to ' + formatTrendScaleValue(maximum) + ' visits and unique visitors');
+          svg.setAttribute('aria-label', 'Traffic trend, Date (UTC) ' + entries[0].date + ' to ' + entries[entries.length - 1].date + ', scale 0 to ' + formatTrendScaleValue(maximum) + ' ' + (hasUniqueVisitors ? 'visits and unique visitors' : requestLabel.toLowerCase()));
           svg.appendChild(createSvgText(axisUnitLabel, leftPadding, 16, 'start'));
+          svg.appendChild(createSvgText('Date (UTC)', leftPadding + usableWidth / 2, chartHeight - 7, 'middle'));
 
           trendScaleTicks().forEach(function(tickValue) {
             var yPosition = topPadding + usableHeight - (usableHeight * tickValue / maximum);
@@ -6682,28 +6732,39 @@
             svg.appendChild(createSvgText(tick.label, tick.xPosition, topPadding + usableHeight + xAxisLabelOffset, 'middle'));
           });
 
-          var pageViewsPath = document.createElementNS(namespace, 'path');
-          pageViewsPath.setAttribute('d', pointPath('page_views'));
-          pageViewsPath.setAttribute('fill', 'none');
-          pageViewsPath.setAttribute('stroke', 'var(--bs-primary)');
-          pageViewsPath.setAttribute('stroke-width', '3');
-          pageViewsPath.setAttribute('stroke-linecap', 'round');
-          pageViewsPath.setAttribute('stroke-linejoin', 'round');
-          svg.appendChild(pageViewsPath);
-
-          var uniqueVisitorsPath = document.createElementNS(namespace, 'path');
-          uniqueVisitorsPath.setAttribute('d', pointPath('unique_visitors'));
-          uniqueVisitorsPath.setAttribute('fill', 'none');
-          uniqueVisitorsPath.setAttribute('stroke', 'var(--bs-success)');
-          uniqueVisitorsPath.setAttribute('stroke-width', '3');
-          uniqueVisitorsPath.setAttribute('stroke-linecap', 'round');
-          uniqueVisitorsPath.setAttribute('stroke-linejoin', 'round');
-          svg.appendChild(uniqueVisitorsPath);
+          function appendTrendSeries(valueKey, color, label) {
+            var path = document.createElementNS(namespace, 'path');
+            path.setAttribute('d', pointPath(valueKey));
+            path.setAttribute('fill', 'none');
+            path.setAttribute('stroke', color);
+            path.setAttribute('stroke-width', '3');
+            path.setAttribute('stroke-linecap', 'round');
+            path.setAttribute('stroke-linejoin', 'round');
+            svg.appendChild(path);
+            entries.forEach(function(point, index) {
+              var value = Number(point[valueKey]);
+              var marker = document.createElementNS(namespace, 'circle');
+              marker.setAttribute('cx', xPositionForPointIndex(index).toFixed(1));
+              marker.setAttribute('cy', (topPadding + usableHeight - usableHeight * value / maximum).toFixed(1));
+              marker.setAttribute('r', '3');
+              marker.setAttribute('fill', color);
+              var description = point.date + ': ' + value + ' ' + label.toLowerCase();
+              marker.setAttribute('aria-label', description);
+              var title = document.createElementNS(namespace, 'title');
+              title.textContent = description;
+              marker.appendChild(title);
+              svg.appendChild(marker);
+            });
+          }
+          appendTrendSeries('page_views', 'var(--bs-primary)', primarySeriesLabel);
+          if (hasUniqueVisitors) {
+            appendTrendSeries('unique_visitors', 'var(--bs-success)', 'Unique visitors');
+          }
           container.appendChild(svg);
 
           var legend = document.createElement('div');
           legend.className = 'd-flex gap-3 small text-muted mt-2';
-          legend.innerHTML = '<span><span class="badge bg-primary me-1">&nbsp;</span>Visits</span><span><span class="badge bg-success me-1">&nbsp;</span>Unique</span>';
+          legend.innerHTML = '<span><span class="badge bg-primary me-1">&nbsp;</span>' + primarySeriesLabel + '</span>' + (hasUniqueVisitors ? '<span><span class="badge bg-success me-1">&nbsp;</span>Unique</span>' : '');
           container.appendChild(legend);
         }
 
@@ -6760,7 +6821,7 @@
             visitCell.textContent = String(Number(site.visit_count) || 0);
             var uniqueCell = document.createElement('td');
             uniqueCell.className = 'text-end';
-            uniqueCell.textContent = site.unique_visitor_count === null ? 'Unavailable' : String(Number(site.unique_visitor_count) || 0);
+            uniqueCell.textContent = site.unique_visitor_count === null ? 'Not collected (daily counts)' : String(Number(site.unique_visitor_count) || 0);
             row.appendChild(nameCell);
             row.appendChild(visitCell);
             row.appendChild(uniqueCell);

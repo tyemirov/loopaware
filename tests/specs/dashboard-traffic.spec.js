@@ -45,6 +45,7 @@ async function expectTrendAxisLabels(page, chartSelector, trendWindowDays) {
   const middlePointDayOffset = lastPointDayOffset - middlePointIndex;
   const dateLabelOffsets = Array.from(new Set([lastPointDayOffset, middlePointDayOffset, 0]));
   await expect(scaleLabels.filter({ hasText: 'Visits / visitors' }).first()).toBeVisible();
+  await expect(scaleLabels.filter({ hasText: /^Date \(UTC\)$/ })).toBeVisible();
   await expect(scaleLabels.filter({ hasText: /^2$/ }).first()).toBeVisible();
   await expect(scaleLabels.filter({ hasText: /^0$/ }).first()).toBeVisible();
   for (const dayOffset of dateLabelOffsets) {
