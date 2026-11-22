@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
-	pingwinclient "github.com/tyemirov/pinguin/pkg/client"
-	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
+	pingwinclient "github.com/tyemirov/pingwin/pkg/client"
+	pinguinpb "github.com/tyemirov/pingwin/pkg/grpcapi"
 	"go.uber.org/zap"
 )
 

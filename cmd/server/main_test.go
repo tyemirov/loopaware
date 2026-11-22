@@ -20,7 +20,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/storage"
-	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
+	pinguinpb "github.com/tyemirov/pingwin/pkg/grpcapi"
 )
 
 const (

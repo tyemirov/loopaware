@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
-	github.com/tyemirov/pinguin v1.1.12
+	github.com/tyemirov/pingwin v1.1.14
 	github.com/tyemirov/tauth v1.2.7
 	github.com/tyemirov/utils v0.17.1
 	go.uber.org/zap v1.28.0
