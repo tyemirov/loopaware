@@ -16,7 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/MarkoPoloResearchLab/loopaware/internal/model"
-	pinguinpb "github.com/tyemirov/pinguin/pkg/grpcapi"
+	pinguinpb "github.com/tyemirov/pingwin/pkg/grpcapi"
 )
 
 const (
